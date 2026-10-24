@@ -7,6 +7,7 @@ import ClassList from "./pages/ClassList";
 import ClassDetail from "./pages/ClassDetail";
 import AssignmentDetail from "./pages/AssignmentDetail";
 import GradeSubmissions from "./pages/GradeSubmissions";
+import AdminUsers from "./pages/AdminUsers";
 
 export default function App() {
   return (
@@ -22,12 +23,15 @@ export default function App() {
             <Route path="/classes" element={<ClassList />} />
             <Route path="/classes/:classId" element={<ClassDetail />} />
             
-            {/* 🎯 BẮT BỘC: Route này phải nằm trong ProtectedRoute và MainLayout */}
             <Route path="/assignments/:id" element={<AssignmentDetail />} />
 
             {/* Chỉ MENTOR / ADMIN */}
             <Route element={<ProtectedRoute roles={["MENTOR", "ADMIN"]} />}>
               <Route path="/assignments/:id/grade" element={<GradeSubmissions />} />
+            </Route>
+
+            <Route element={<ProtectedRoute roles={["ADMIN"]} />}>
+              <Route path="/admin/users" element={<AdminUsers />} />
             </Route>
           </Route>
         </Route>

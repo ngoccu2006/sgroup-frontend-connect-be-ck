@@ -1,7 +1,26 @@
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
+import {
+  GraduationCap,
+  Presentation,
+  TrendingUp,
+  ShieldCheck,
+  CircleAlert,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  LoaderCircle,
+} from "lucide-react";
 import { authApi } from "../api/auth";
 import { getToken } from "../api/client";
+import "./Login.css";
+
+const FEATURES = [
+  { icon: Presentation, label: "Quản lý lớp học" },
+  { icon: TrendingUp, label: "Theo dõi tiến độ" },
+  { icon: ShieldCheck, label: "Bảo mật tài khoản" },
+];
 
 export default function Login() {
   const navigate = useNavigate();
@@ -9,6 +28,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   // Đã login thì chuyển thẳng vào trang chủ
   if (getToken()) return <Navigate to="/" replace />;
@@ -34,103 +54,117 @@ export default function Login() {
   };
 
   return (
-    <div style={styles.container}>
-      <form onSubmit={handleSubmit} style={styles.card}>
-        <h2 style={styles.title}>🎓 LMS System Login</h2>
-        
-        {error && <div style={styles.error}>{error}</div>}
+    <div className="login-page">
+      {/* Nửa trái: giới thiệu (ẩn trên màn hình nhỏ) */}
+      <section className="login-hero">
+        <div className="login-orb login-orb--1" />
+        <div className="login-orb login-orb--2" />
+        <div className="login-orb login-orb--3" />
+        <div className="login-dots" />
 
-        <div style={styles.field}>
-          <label>Email:</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="admin@gmail.com"
-            required
-            style={styles.input}
-          />
+        <div className="login-brand">
+          <div className="login-brand__logo">
+            <GraduationCap size={24} />
+          </div>
+          <span>LMS System</span>
         </div>
 
-        <div style={styles.field}>
-          <label>Mật khẩu:</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
-            required
-            style={styles.input}
-          />
-        </div>
+        <div className="login-hero__content">
+          <h1>Học tập thông minh hơn mỗi ngày</h1>
+          <p>Quản lý lớp học, bài giảng và học viên trên một nền tảng duy nhất.</p>
 
-        <button type="submit" disabled={loading} style={styles.button}>
-          {loading ? "Đang xử lý..." : "Đăng nhập"}
-        </button>
-      </form>
+          <ul className="login-features">
+            {FEATURES.map(({ icon: Icon, label }) => (
+              <li key={label} className="login-feature">
+                <span className="login-feature__icon">
+                  <Icon size={18} />
+                </span>
+                {label}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* Nửa phải: form đăng nhập */}
+      <section className="login-panel">
+        <div className="login-panel__inner">
+          {/* Logo thu gọn, chỉ hiện trên mobile */}
+          <div className="login-brand login-brand--mobile">
+            <div className="login-brand__logo">
+              <GraduationCap size={22} />
+            </div>
+            <span>LMS System</span>
+          </div>
+
+          <form onSubmit={handleSubmit} className="login-card">
+            <div className="login-card__header">
+              <h2>Đăng nhập</h2>
+              <p>Chào mừng trở lại! Vui lòng nhập thông tin của bạn.</p>
+            </div>
+
+            {error && (
+              <div className="login-error" role="alert">
+                <CircleAlert size={18} />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <div className="login-field">
+              <label htmlFor="email">Email</label>
+              <div className="login-input">
+                <Mail size={18} className="login-input__icon" />
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="admin@gmail.com"
+                  autoComplete="email"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="login-field">
+              <label htmlFor="password">Mật khẩu</label>
+              <div className="login-input">
+                <Lock size={18} className="login-input__icon" />
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  required
+                />
+                <button
+                  type="button"
+                  className="login-input__toggle"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+
+            <button type="submit" disabled={loading} className="login-submit">
+              {loading ? (
+                <>
+                  <LoaderCircle size={18} className="login-spin" />
+                  Đang xử lý...
+                </>
+              ) : (
+                "Đăng nhập"
+              )}
+            </button>
+          </form>
+
+          <p className="login-footer">© {new Date().getFullYear()} LMS System</p>
+        </div>
+      </section>
     </div>
   );
 }
-
-const styles = {
-  container: {
-    minHeight: "100vh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#09090b",
-    color: "#f4f4f5",
-    fontFamily: "sans-serif",
-  },
-  card: {
-    width: "100%",
-    maxWidth: "400px",
-    padding: "32px",
-    borderRadius: "12px",
-    backgroundColor: "#18181b",
-    border: "1px solid #27272a",
-    boxShadow: "0 10px 25px rgba(0,0,0,0.5)",
-  },
-  title: {
-    textAlign: "center",
-    marginBottom: "24px",
-    fontSize: "24px",
-    color: "#3b82f6",
-  },
-  field: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "8px",
-    marginBottom: "16px",
-  },
-  input: {
-    padding: "10px 14px",
-    borderRadius: "6px",
-    border: "1px solid #3f3f46",
-    backgroundColor: "#27272a",
-    color: "#fff",
-    fontSize: "14px",
-    outline: "none",
-  },
-  button: {
-    width: "100%",
-    padding: "12px",
-    marginTop: "8px",
-    borderRadius: "6px",
-    border: "none",
-    backgroundColor: "#2563eb",
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: "15px",
-    cursor: "pointer",
-  },
-  error: {
-    padding: "10px",
-    borderRadius: "6px",
-    backgroundColor: "#451a1a",
-    color: "#f87171",
-    fontSize: "14px",
-    marginBottom: "16px",
-    border: "1px solid #7f1d1d",
-  },
-};

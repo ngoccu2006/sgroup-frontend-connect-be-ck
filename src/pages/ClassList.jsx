@@ -14,7 +14,7 @@ export default function ClassList() {
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ title: "", description: "" });
+  const [form, setForm] = useState({ name: "", description: "" });
   const [submitting, setSubmitting] = useState(false);
 
   // UI state (lọc phía client)
@@ -38,7 +38,7 @@ export default function ClassList() {
       await classApi.create(form);
       alert("Tạo lớp học mới thành công!");
       setShowModal(false);
-      setForm({ title: "", description: "" });
+      setForm({ name: "", description: "" });
       loadClasses(); // Reload lại danh sách
     } catch (err) {
       alert(err.message || "Tạo lớp học thất bại");
@@ -176,8 +176,8 @@ export default function ClassList() {
                   <label style={styles.label}>Tên Lớp Học <span style={styles.req}>*</span></label>
                   <input
                     required
-                    value={form.title}
-                    onChange={(e) => setForm({ ...form, title: e.target.value })}
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
                     placeholder="Ví dụ: Lập trình ReactJS Thực Chiến"
                     className="cl-input"
                     style={styles.input}

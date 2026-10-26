@@ -5,5 +5,5 @@ export const userApi = {
   create: (payload) => api("/users", { method: "POST", body: payload }),
   update: (id, payload) => api(`/users/${id}`, { method: "PUT", body: payload }),
   remove: (id) => api(`/users/${id}`, { method: "DELETE" }),
-  assignToClass: (class_id, member_ids) => api("/users/assign-to-class", { method: "POST", body: { class_id, member_ids } }),
+  assignToClass: (class_id, member_id) => api("/class-members/add", { method: "POST", body: { class_id, member_id } }),
 };

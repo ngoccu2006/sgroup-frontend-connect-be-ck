@@ -65,8 +65,8 @@ export default function AdminUsers() {
     e.preventDefault();
     if (!selectedUser || !selectedClassId) return alert("Vui lòng chọn lớp học!");
     try {
-      await userApi.assignToClass(selectedClassId, [selectedUser.id]);
-      alert(`Đã thêm ${selectedUser.name} vào lớp!`);
+      await userApi.assignToClass(selectedClassId, selectedUser.id);
+      alert(`Đã thêm ${selectedUser.name || selectedUser.full_name} vào lớp!`);
       setShowAssignModal(false);
     } catch (err) {
       alert(err.message || "Thêm vào lớp thất bại");

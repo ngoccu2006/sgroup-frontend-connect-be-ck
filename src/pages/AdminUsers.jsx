@@ -1,13 +1,26 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { userApi } from "../api/users";
 import { classApi } from "../api/classes";
+import { fetchAll, parseSort, EMPTY_PAGINATION } from "../api/client";
+import Pagination, { SortSelect } from "../components/Pagination";
 import {
   Plus, Trash2, UserPlus, Shield, BadgeCheck, User, Users, GraduationCap, Search, X,
-  Mail, KeyRound, Eye, EyeOff, ChevronDown, Check, IdCard, School,
+  Mail, KeyRound, Eye, EyeOff, ChevronDown, Check, IdCard, School, ArrowUpDown,
 } from "lucide-react";
+
+const SORT_OPTIONS = [
+  { value: "created_at:DESC", label: "Mới tham gia" },
+  { value: "created_at:ASC", label: "Tham gia lâu nhất" },
+  { value: "full_name:ASC", label: "Tên A → Z" },
+  { value: "full_name:DESC", label: "Tên Z → A" },
+  { value: "email:ASC", label: "Email A → Z" },
+  { value: "role:ASC", label: "Theo vai trò" },
+];
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
+  const [pagination, setPagination] = useState(EMPTY_PAGINATION);
+  const [query, setQuery] = useState({ page: 1, limit: 10, sort: "created_at:DESC" });
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -24,17 +37,26 @@ export default function AdminUsers() {
   const [roleFilter, setRoleFilter] = useState("ALL");
   const [showPassword, setShowPassword] = useState(false);
 
-  const loadData = () => {
-    Promise.all([
-      userApi.getAll().then(({ data }) => setUsers(data || [])),
-      classApi.getAll().then(({ data }) => setClasses(data || [])),
-    ])
+  // Bảng user: phân trang + sắp xếp phía server
+  const loadData = useCallback(() => {
+    return userApi.getAll({ page: query.page, limit: query.limit, ...parseSort(query.sort) })
+      .then(({ data, pagination: pg }) => {
+        setUsers(data || []);
+        setPagination(pg || { ...EMPTY_PAGINATION, totalItems: (data || []).length, totalPages: 1 });
+      })
       .catch((e) => alert(e.message))
       .finally(() => setLoading(false));
-  };
+  }, [query]);
 
   useEffect(() => {
     loadData();
+  }, [loadData]);
+
+  // Dropdown chọn lớp cần đủ danh sách -> gom tất cả các trang
+  useEffect(() => {
+    fetchAll((p) => classApi.getAll({ ...p, sortBy: "name", sortOrder: "ASC" }))
+      .then(setClasses)
+      .catch(() => setClasses([]));
   }, []);
 
   const handleCreateUser = async (e) => {
@@ -83,8 +105,9 @@ export default function AdminUsers() {
     );
   }
 
+  // ALL lấy tổng từ server; các role đếm trong trang hiện tại
   const counts = {
-    ALL: users.length,
+    ALL: pagination.totalItems,
     ADMIN: users.filter((u) => u.role === "ADMIN").length,
     MENTOR: users.filter((u) => u.role === "MENTOR").length,
     MEMBER: users.filter((u) => u.role === "MEMBER").length,
@@ -98,7 +121,7 @@ export default function AdminUsers() {
   });
 
   const statCards = [
-    { label: "Tổng người dùng", value: counts.ALL, icon: Users, color: "#60a5fa" },
+    { label: "Tổng người dùng", value: counts.ALL, icon: Users, color: "#60a5fa", total: true },
     { label: "Quản trị viên (Admin)", value: counts.ADMIN, icon: Shield, color: ROLE_THEME.ADMIN.color },
     { label: "Giảng viên (Mentor)", value: counts.MENTOR, icon: BadgeCheck, color: ROLE_THEME.MENTOR.color },
     { label: "Học viên (Member)", value: counts.MEMBER, icon: GraduationCap, color: "#34d399" },
@@ -131,7 +154,7 @@ export default function AdminUsers() {
       <div style={styles.statGrid}>
         {statCards.map((s) => {
           const Icon = s.icon;
-          const percent = counts.ALL ? Math.round((s.value / counts.ALL) * 100) : 0;
+          const percent = s.total ? 100 : users.length ? Math.round((s.value / users.length) * 100) : 0;
           return (
             <div key={s.label} className="au-card" style={styles.statCard}>
               <div style={styles.statTop}>
@@ -140,7 +163,10 @@ export default function AdminUsers() {
                   <Icon size={16} />
                 </div>
               </div>
-              <div style={styles.statValue}>{s.value}</div>
+              <div style={styles.statValue}>
+                {s.value}
+                {!s.total && <span style={styles.statHint}> / {users.length} trên trang này</span>}
+              </div>
               <div style={styles.progressTrack}>
                 <div style={{ ...styles.progressBar, width: `${percent}%`, backgroundColor: s.color }} />
               </div>
@@ -162,20 +188,28 @@ export default function AdminUsers() {
                 style={{ ...styles.tab, ...(active ? styles.tabActive : {}) }}
               >
                 {r !== "ALL" && <span style={{ ...styles.dot, backgroundColor: ROLE_THEME[r].color }} />}
-                {r === "ALL" ? "Tất cả" : r} ({counts[r]})
+                {r === "ALL" ? "Tất cả" : r} ({r === "ALL" ? users.length : counts[r]})
               </button>
             );
           })}
         </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+        <SortSelect
+          value={query.sort}
+          onChange={(sort) => setQuery((q) => ({ ...q, sort, page: 1 }))}
+          options={SORT_OPTIONS}
+          icon={<ArrowUpDown size={14} />}
+        />
         <div style={styles.searchWrap}>
           <Search size={16} style={styles.searchIcon} />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Tìm theo tên hoặc email..."
+            placeholder="Tìm trong trang hiện tại..."
             className="au-input"
             style={{ ...styles.input, ...styles.searchInput }}
           />
+        </div>
         </div>
       </div>
 
@@ -249,8 +283,12 @@ export default function AdminUsers() {
           </table>
         </div>
         <div style={styles.tableFooter}>
-          Hiển thị <strong style={{ color: "#f4f4f5" }}>{visibleUsers.length}</strong> trong số{" "}
-          <strong style={{ color: "#f4f4f5" }}>{users.length}</strong> người dùng
+          <Pagination
+            pagination={pagination}
+            onPageChange={(page) => setQuery((q) => ({ ...q, page }))}
+            onLimitChange={(limit) => setQuery((q) => ({ ...q, limit, page: 1 }))}
+            itemLabel="người dùng"
+          />
         </div>
       </div>
 
@@ -493,7 +531,8 @@ const styles = {
   assignBtn: { display: "inline-flex", alignItems: "center", gap: 5, backgroundColor: "rgba(16,185,129,0.12)", color: "#34d399", border: "1px solid rgba(52,211,153,0.3)", padding: "5px 10px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 500 },
   deleteBtn: { display: "inline-flex", alignItems: "center", backgroundColor: "transparent", color: "#71717a", border: "none", padding: 6, borderRadius: 8, cursor: "pointer" },
   empty: { padding: 48, textAlign: "center", color: "#71717a" },
-  tableFooter: { padding: "12px 24px", borderTop: "1px solid #27272a", backgroundColor: "#141417", color: "#a1a1aa", fontSize: 12 },
+  statHint: { fontSize: 11, fontWeight: 400, color: "#71717a", letterSpacing: 0 },
+  tableFooter: { padding: "0 24px 20px", borderTop: "1px solid #27272a", backgroundColor: "#141417", color: "#a1a1aa", fontSize: 12 },
 
   modalOverlay: { position: "fixed", inset: 0, backgroundColor: "rgba(9,9,11,0.8)", backdropFilter: "blur(4px)", display: "flex", justifyContent: "center", alignItems: "center", padding: 16, zIndex: 1000 },
   modalContent: { backgroundColor: "#18181b", border: "1px solid #3f3f46", borderRadius: 16, width: "100%", maxWidth: 480, color: "#f4f4f5", overflow: "hidden", boxShadow: "0 25px 50px rgba(0,0,0,0.6)" },

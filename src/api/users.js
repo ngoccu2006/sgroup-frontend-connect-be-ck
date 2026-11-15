@@ -1,7 +1,8 @@
-import { api } from "./client";
+import { api, withQuery } from "./client";
 
+// params: { page, limit, sortBy: created_at|email|full_name|role|updated_at, sortOrder }
 export const userApi = {
-  getAll: () => api("/users"),
+  getAll: (params) => api(withQuery("/users", params)),
   create: (payload) => api("/users", { method: "POST", body: payload }),
   update: (id, payload) => api(`/users/${id}`, { method: "PUT", body: payload }),
   remove: (id) => api(`/users/${id}`, { method: "DELETE" }),

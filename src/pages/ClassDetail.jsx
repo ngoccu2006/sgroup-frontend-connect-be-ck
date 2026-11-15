@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link, useParams } from "react-router-dom";
-import { getUser } from "../api/client";
+import { getUser, parseSort, EMPTY_PAGINATION } from "../api/client";
+import Pagination from "../components/Pagination";
+import ScheduleSection from "../components/ScheduleSection";
 import { classApi } from "../api/classes";
 import { lessonApi } from "../api/lessons";
 import { assignmentApi } from "../api/assignments";
@@ -11,6 +13,14 @@ import {
   AlertTriangle, FilePlus2, BookPlus,
 } from "lucide-react";
 
+const ASSIGNMENT_SORTS = [
+  { value: "created_at:ASC", label: "Cũ → mới" },
+  { value: "created_at:DESC", label: "Mới → cũ" },
+  { value: "deadline:ASC", label: "Hạn nộp gần nhất" },
+  { value: "maximum_score:DESC", label: "Điểm cao nhất" },
+  { value: "title:ASC", label: "Tên A → Z" },
+];
+
 export default function ClassDetail() {
   const { classId } = useParams();
   const user = getUser();
@@ -18,6 +28,11 @@ export default function ClassDetail() {
 
   const [lessons, setLessons] = useState([]);
   const [assignments, setAssignments] = useState([]);
+  // Phân trang phía server cho từng danh sách
+  const [lessonQuery, setLessonQuery] = useState({ page: 1, limit: 5 });
+  const [lessonPg, setLessonPg] = useState(EMPTY_PAGINATION);
+  const [assignmentQuery, setAssignmentQuery] = useState({ page: 1, limit: 5, sort: "created_at:ASC" });
+  const [assignmentPg, setAssignmentPg] = useState(EMPTY_PAGINATION);
   const [progress, setProgress] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -40,21 +55,44 @@ export default function ClassDetail() {
       .catch(() => {});
   }, [classId]);
 
-  // 2. Hàm loadData - BỎ các lệnh setState đồng bộ ở đầu hàm
+  // 2. Tải từng danh sách (có phân trang)
+  const loadLessons = useCallback(() => {
+    return lessonApi.getByClass(classId, { ...lessonQuery, sortBy: "order", sortOrder: "ASC" })
+      .then(({ data, pagination }) => {
+        setLessons(data || []);
+        setLessonPg(pagination || { ...EMPTY_PAGINATION, totalItems: (data || []).length, totalPages: 1 });
+      })
+      .catch(() => setLessons([]));
+  }, [classId, lessonQuery]);
+
+  const loadAssignments = useCallback(() => {
+    const { page, limit, sort } = assignmentQuery;
+    return assignmentApi.getByClass(classId, { page, limit, ...parseSort(sort) })
+      .then(({ data, pagination }) => {
+        setAssignments(data || []);
+        setAssignmentPg(pagination || { ...EMPTY_PAGINATION, totalItems: (data || []).length, totalPages: 1 });
+      })
+      .catch(() => setAssignments([]));
+  }, [classId, assignmentQuery]);
+
   const loadData = useCallback(() => {
-    Promise.all([
-      lessonApi.getByClass(classId).then(({ data }) => setLessons(data || [])).catch(() => setLessons([])),
-      assignmentApi.getByClass(classId).then(({ data }) => setAssignments(data || [])).catch(() => setAssignments([])),
-      loadProgress(),
-    ])
+    return Promise.all([loadLessons(), loadAssignments(), loadProgress()]);
+  }, [loadLessons, loadAssignments, loadProgress]);
+
+  // 3. Gọi trong useEffect (mỗi danh sách tự tải lại khi đổi trang)
+  useEffect(() => {
+    loadLessons();
+  }, [loadLessons]);
+
+  useEffect(() => {
+    loadAssignments();
+  }, [loadAssignments]);
+
+  useEffect(() => {
+    loadProgress()
       .catch((e) => setError(e.message || "Lỗi tải dữ liệu lớp học"))
       .finally(() => setLoading(false));
-  }, [classId, loadProgress]);
-
-  // 3. Gọi trong useEffect
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  }, [loadProgress]);
 
   const handleComplete = async (lessonId) => {
     try {
@@ -74,7 +112,7 @@ export default function ClassDetail() {
       await lessonApi.create({ ...lessonForm, class_id: classId, order: Number(lessonForm.order) });
       alert("Tạo bài học thành công!");
       setShowLessonModal(false);
-      setLessonForm({ title: "", content: "", order: lessons.length + 1 });
+      setLessonForm({ title: "", content: "", order: lessonPg.totalItems + 2 });
       loadData();
     } catch (err) {
       alert(err.message || "Không thể tạo bài học");
@@ -194,13 +232,16 @@ export default function ClassDetail() {
             </div>
 
             <div style={styles.heroStats}>
-              <StatPill color="#3b82f6" label="Bài học" value={`${lessons.length} bài`} />
-              <StatPill color="#fbbf24" label="Bài tập" value={`${assignments.length} bài`} />
+              <StatPill color="#3b82f6" label="Bài học" value={`${lessonPg.totalItems} bài`} />
+              <StatPill color="#fbbf24" label="Bài tập" value={`${assignmentPg.totalItems} bài`} />
               <StatPill color="#34d399" label="Đã hoàn thành" value={`${progress.completedLessons || 0} bài`} valueColor="#34d399" />
             </div>
           </div>
         </section>
       )}
+
+      {/* Lịch học của lớp */}
+      <ScheduleSection classId={classId} canManage={isMentorOrAdmin} />
 
       <div className="cd-grid">
         {/* Cột 1: Danh sách Bài học */}
@@ -210,9 +251,9 @@ export default function ClassDetail() {
             color="#60a5fa"
             title="Danh sách Bài học"
             subtitle="Lộ trình bài giảng của lớp"
-            count={lessons.length}
+            count={lessonPg.totalItems}
             action={isMentorOrAdmin && (
-              <button onClick={() => setShowLessonModal(true)} className="cd-btn-primary" style={styles.addBtn}>
+              <button onClick={() => { setLessonForm((f) => ({ ...f, order: lessonPg.totalItems + 1 })); setShowLessonModal(true); }} className="cd-btn-primary" style={styles.addBtn}>
                 <Plus size={14} /> Bài học
               </button>
             )}
@@ -242,6 +283,13 @@ export default function ClassDetail() {
               ))}
             </div>
           )}
+          <Pagination
+            pagination={lessonPg}
+            onPageChange={(page) => setLessonQuery((q) => ({ ...q, page }))}
+            onLimitChange={(limit) => setLessonQuery({ page: 1, limit })}
+            itemLabel="bài học"
+            compact
+          />
         </section>
 
         {/* Cột 2: Danh sách Bài tập */}
@@ -251,13 +299,27 @@ export default function ClassDetail() {
             color="#fbbf24"
             title="Bài tập về nhà"
             subtitle="Nộp bài & nhận phản hồi từ giảng viên"
-            count={assignments.length}
+            count={assignmentPg.totalItems}
             action={isMentorOrAdmin && (
               <button onClick={() => setShowAssignmentModal(true)} className="cd-btn-amber" style={{ ...styles.addBtn, ...styles.addBtnAmber }}>
                 <Plus size={14} /> Bài tập
               </button>
             )}
           />
+
+          {assignmentPg.totalItems > 1 && (
+            <div style={styles.sortRow}>
+              <span>Sắp xếp:</span>
+              <select
+                value={assignmentQuery.sort}
+                onChange={(e) => setAssignmentQuery((q) => ({ ...q, sort: e.target.value, page: 1 }))}
+                className="cd-input cd-input-amber"
+                style={styles.sortSelect}
+              >
+                {ASSIGNMENT_SORTS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+          )}
 
           {assignments.length === 0 ? (
             <EmptyState icon={<FileText size={20} />} text="Lớp học này chưa có bài tập nào." />
@@ -292,6 +354,13 @@ export default function ClassDetail() {
               })}
             </div>
           )}
+          <Pagination
+            pagination={assignmentPg}
+            onPageChange={(page) => setAssignmentQuery((q) => ({ ...q, page }))}
+            onLimitChange={(limit) => setAssignmentQuery((q) => ({ ...q, limit, page: 1 }))}
+            itemLabel="bài tập"
+            compact
+          />
         </section>
       </div>
 
@@ -581,6 +650,8 @@ const styles = {
   addBtnAmber: { backgroundColor: "#fbbf24", color: "#000", boxShadow: "0 4px 12px rgba(251,191,36,0.2)" },
 
   list: { display: "flex", flexDirection: "column", gap: 12 },
+  sortRow: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, marginTop: -4, fontSize: 12, color: "#a1a1aa" },
+  sortSelect: { width: "auto", padding: "5px 8px", borderRadius: 8, border: "1px solid #27272a", backgroundColor: "#09090b", color: "#f4f4f5", fontSize: 12, outline: "none", colorScheme: "dark", cursor: "pointer" },
   itemCard: { display: "flex", alignItems: "flex-start", gap: 14, padding: 14, borderRadius: 12, backgroundColor: "rgba(32,32,36,0.6)", border: "1px solid #27272a" },
   orderCircle: { width: 32, height: 32, flexShrink: 0, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#60a5fa", backgroundColor: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.35)" },
   itemTitle: { margin: 0, fontSize: 14, fontWeight: 600, color: "#f4f4f5" },

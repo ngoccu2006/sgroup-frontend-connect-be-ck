@@ -1,14 +1,25 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { classApi } from "../api/classes";
-import { getUser } from "../api/client";
-import { Calendar, ArrowRight, Plus, X, School, Search, BookmarkPlus, Check, FolderOpen, TriangleAlert } from "lucide-react";
+import { getUser, parseSort, EMPTY_PAGINATION } from "../api/client";
+import Pagination, { SortSelect } from "../components/Pagination";
+import { Calendar, ArrowRight, Plus, X, School, Search, BookmarkPlus, Check, FolderOpen, TriangleAlert, ArrowUpDown } from "lucide-react";
+
+const SORT_OPTIONS = [
+  { value: "created_at:DESC", label: "Mới tạo gần đây" },
+  { value: "created_at:ASC", label: "Cũ nhất" },
+  { value: "name:ASC", label: "Tên A → Z" },
+  { value: "name:DESC", label: "Tên Z → A" },
+  { value: "updated_at:DESC", label: "Mới cập nhật" },
+];
 
 export default function ClassList() {
   const user = getUser();
   const isMentorOrAdmin = ["MENTOR", "ADMIN"].includes(user?.role);
 
   const [classes, setClasses] = useState([]);
+  const [pagination, setPagination] = useState(EMPTY_PAGINATION);
+  const [query, setQuery] = useState({ page: 1, limit: 9, sort: "created_at:DESC" });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -20,16 +31,19 @@ export default function ClassList() {
   // UI state (lọc phía client)
   const [search, setSearch] = useState("");
 
-  const loadClasses = () => {
-    classApi.getAll()
-      .then(({ data }) => setClasses(data || []))
+  const loadClasses = useCallback(() => {
+    return classApi.getAll({ page: query.page, limit: query.limit, ...parseSort(query.sort) })
+      .then(({ data, pagination: pg }) => {
+        setClasses(data || []);
+        setPagination(pg || { ...EMPTY_PAGINATION, totalItems: (data || []).length, totalPages: 1 });
+      })
       .catch((e) => setError(e.message || "Lỗi tải danh sách lớp học"))
       .finally(() => setLoading(false));
-  };
+  }, [query]);
 
   useEffect(() => {
     loadClasses();
-  }, []);
+  }, [loadClasses]);
 
   const handleCreateClass = async (e) => {
     e.preventDefault();
@@ -80,7 +94,7 @@ export default function ClassList() {
           <div>
             <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
               <h2 style={styles.title}>Lớp học của bạn</h2>
-              <span style={styles.countBadge}>{classes.length} lớp</span>
+              <span style={styles.countBadge}>{pagination.totalItems} lớp</span>
             </div>
             <p style={styles.subtitle}>Chọn một lớp để xem bài học, bài tập và tiến độ</p>
           </div>
@@ -100,13 +114,19 @@ export default function ClassList() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Tìm lớp học theo tên..."
+            placeholder="Tìm trong trang hiện tại..."
             className="cl-input"
             style={{ ...styles.input, height: 38, paddingLeft: 36, backgroundColor: "#18181b" }}
           />
         </div>
+        <SortSelect
+          value={query.sort}
+          onChange={(sort) => setQuery((q) => ({ ...q, sort, page: 1 }))}
+          options={SORT_OPTIONS}
+          icon={<ArrowUpDown size={14} />}
+        />
         <span style={styles.metaCount}>
-          <span style={styles.dot} /> Hiển thị {visibleClasses.length} lớp học
+          <span style={styles.dot} /> Trang {pagination.page}/{Math.max(1, pagination.totalPages)} · {visibleClasses.length} lớp học
         </span>
       </div>
 
@@ -153,6 +173,14 @@ export default function ClassList() {
           })}
         </div>
       )}
+
+      <Pagination
+        pagination={pagination}
+        onPageChange={(page) => setQuery((q) => ({ ...q, page }))}
+        onLimitChange={(limit) => setQuery((q) => ({ ...q, limit, page: 1 }))}
+        limitOptions={[6, 9, 12, 24]}
+        itemLabel="lớp học"
+      />
 
       {/* Modal Tạo Lớp Học */}
       {showModal && (

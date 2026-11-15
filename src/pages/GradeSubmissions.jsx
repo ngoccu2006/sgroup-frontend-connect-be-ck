@@ -1,14 +1,22 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { submissionApi } from "../api/submissions";
+import { assignmentApi } from "../api/assignments";
+import { EMPTY_PAGINATION } from "../api/client";
+import Pagination from "../components/Pagination";
+import { SubmissionHistoryModal } from "../components/SubmissionHistory";
 import {
   ArrowLeft, ExternalLink, Save, ClipboardCheck, Inbox, CircleCheck, Clock, Search, Code2, FileArchive,
-  TrendingUp, Check,
+  TrendingUp, Check, History, Layers,
 } from "lucide-react";
 
 export default function GradeSubmissions() {
   const { id } = useParams(); // assignmentId
   const [submissions, setSubmissions] = useState([]);
+  const [assignment, setAssignment] = useState(null);
+  const [pagination, setPagination] = useState(EMPTY_PAGINATION);
+  const [query, setQuery] = useState({ page: 1, limit: 10 });
+  const [historyOf, setHistoryOf] = useState(null); // submission đang xem lịch sử
   const [loading, setLoading] = useState(true);
 
   // UI state (lọc phía client + trạng thái nút lưu)
@@ -17,11 +25,22 @@ export default function GradeSubmissions() {
   const [savingId, setSavingId] = useState(null);
 
   useEffect(() => {
-    submissionApi.getByAssignment(id)
-      .then(({ data }) => setSubmissions(data || []))
+    assignmentApi.getById(id).then(({ data }) => setAssignment(data)).catch(() => {});
+  }, [id]);
+
+  const loadSubmissions = useCallback(() => {
+    return submissionApi.getByAssignment(id, query)
+      .then(({ data, pagination: pg }) => {
+        setSubmissions(data || []);
+        setPagination(pg || { ...EMPTY_PAGINATION, totalItems: (data || []).length, totalPages: 1 });
+      })
       .catch((e) => alert(e.message))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, query]);
+
+  useEffect(() => {
+    loadSubmissions();
+  }, [loadSubmissions]);
 
   const handleGrade = async (submissionId, form) => {
     const score = Number(form.score.value);
@@ -55,6 +74,7 @@ export default function GradeSubmissions() {
   const isGraded = (s) => s.score !== null && s.score !== undefined;
   const gradedCount = submissions.filter(isGraded).length;
   const pendingCount = submissions.length - gradedCount;
+  const resubmitCount = submissions.filter((s) => (s.version || 1) > 1).length;
   const gradedPercent = submissions.length ? Math.round((gradedCount / submissions.length) * 100) : 0;
 
   const keyword = search.trim().toLowerCase();
@@ -84,20 +104,24 @@ export default function GradeSubmissions() {
         <div style={styles.headerIcon}><ClipboardCheck size={26} /></div>
         <div>
           <h2 style={styles.title}>Quản lý & Chấm điểm bài nộp</h2>
-          <p style={styles.subtitle}>Chấm điểm và gửi nhận xét — học viên sẽ nhận thông báo ngay.</p>
+          <p style={styles.subtitle}>
+            {assignment ? <><strong style={{ color: "#e4e4e7" }}>{assignment.title}</strong> · Điểm tối đa {assignment.maximum_score} · </> : null}
+            Chấm điểm và gửi nhận xét — học viên sẽ nhận thông báo ngay.
+          </p>
         </div>
       </div>
 
       {/* Thống kê */}
       <div style={styles.statGrid}>
-        <StatCard label="Tổng bài nộp" value={submissions.length} hint="bài làm đã gửi" icon={<Inbox size={18} />} color="#a1a1aa" />
-        <StatCard label="Đã chấm" value={gradedCount} hint="đã công bố điểm" icon={<CircleCheck size={18} />} color="#34d399" />
-        <StatCard label="Chờ chấm" value={pendingCount} hint="cần xem xét" icon={<Clock size={18} />} color="#fbbf24" />
+        <StatCard label="Tổng bài nộp" value={pagination.totalItems} hint="học viên đã nộp" icon={<Inbox size={18} />} color="#a1a1aa" />
+        <StatCard label="Đã chấm" value={gradedCount} hint="trên trang này" icon={<CircleCheck size={18} />} color="#34d399" />
+        <StatCard label="Chờ chấm" value={pendingCount} hint="trên trang này" icon={<Clock size={18} />} color="#fbbf24" />
+        <StatCard label="Nộp lại" value={resubmitCount} hint="bài có nhiều phiên bản" icon={<Layers size={18} />} color="#a78bfa" />
       </div>
       <div style={styles.progressCard}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}>
           <TrendingUp size={18} color="#34d399" />
-          <strong style={{ color: "#f4f4f5", fontWeight: 600 }}>Tiến độ chấm:</strong>
+          <strong style={{ color: "#f4f4f5", fontWeight: 600 }}>Tiến độ chấm (trang {pagination.page}):</strong>
           <span style={{ color: "#a1a1aa" }}>{gradedCount}/{submissions.length} học viên</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flex: "1 1 240px", maxWidth: 420 }}>
@@ -115,7 +139,7 @@ export default function GradeSubmissions() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Tìm theo tên hoặc email học viên..."
+            placeholder="Tìm học viên trong trang này..."
             className="gs-input"
             style={{ ...styles.input, height: 38, paddingLeft: 36, backgroundColor: "#18181b" }}
           />
@@ -139,7 +163,7 @@ export default function GradeSubmissions() {
         <div style={styles.empty}>
           <div style={styles.emptyIcon}><Inbox size={22} /></div>
           <div style={{ fontWeight: 500, color: "#e4e4e7" }}>
-            {submissions.length === 0 ? "Chưa có học viên nào nộp bài." : "Không có bài nộp phù hợp bộ lọc."}
+            {pagination.totalItems === 0 ? "Chưa có học viên nào nộp bài." : "Không có bài nộp phù hợp bộ lọc."}
           </div>
         </div>
       ) : (
@@ -147,6 +171,7 @@ export default function GradeSubmissions() {
           {visible.map((s) => {
             const graded = isGraded(s);
             const accent = graded ? "#34d399" : "#fbbf24";
+            const version = s.version || 1;
             return (
               <article key={s.id} className={`gs-card ${graded ? "gs-card-graded" : "gs-card-pending"}`} style={styles.card}>
                 {/* Trái: học viên */}
@@ -163,10 +188,21 @@ export default function GradeSubmissions() {
                       </div>
                     </div>
                   </div>
-                  <span style={{ ...styles.statusPill, color: accent, backgroundColor: `${accent}1f`, borderColor: `${accent}4d` }}>
-                    {graded ? <Check size={13} /> : <span className="gs-pulse" style={{ ...styles.statusDot, backgroundColor: accent }} />}
-                    {graded ? `Đã chấm: ${s.score}` : "Chờ chấm"}
-                  </span>
+                  <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+                    <span style={{ ...styles.statusPill, color: accent, backgroundColor: `${accent}1f`, borderColor: `${accent}4d` }}>
+                      {graded ? <Check size={13} /> : <span className="gs-pulse" style={{ ...styles.statusDot, backgroundColor: accent }} />}
+                      {graded ? `Đã chấm: ${s.score}` : version > 1 ? "Nộp lại · chờ chấm" : "Chờ chấm"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setHistoryOf(s)}
+                      className="gs-history"
+                      style={{ ...styles.versionBtn, ...(version > 1 ? styles.versionBtnActive : {}) }}
+                      title="Xem lịch sử các lần nộp"
+                    >
+                      <History size={12} /> v{version}{version > 1 ? ` · ${version - 1} bản cũ` : ""}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Giữa: nội dung bài nộp */}
@@ -201,6 +237,8 @@ export default function GradeSubmissions() {
                     type="number"
                     step="0.1"
                     defaultValue={s.score ?? ""}
+                    min={0}
+                    max={assignment?.maximum_score}
                     placeholder="Điểm"
                     required
                     className="gs-input"
@@ -224,6 +262,19 @@ export default function GradeSubmissions() {
           })}
         </div>
       )}
+
+      <Pagination
+        pagination={pagination}
+        onPageChange={(page) => setQuery((q) => ({ ...q, page }))}
+        onLimitChange={(limit) => setQuery((q) => ({ ...q, limit, page: 1 }))}
+        itemLabel="bài nộp"
+      />
+
+      <SubmissionHistoryModal
+        submission={historyOf}
+        maxScore={assignment?.maximum_score}
+        onClose={() => setHistoryOf(null)}
+      />
     </div>
   );
 }
@@ -267,6 +318,8 @@ const css = `
   .gs-back:hover { color: #f4f4f5 !important; }
   .gs-back-icon { transition: transform .15s; }
   .gs-back:hover .gs-back-icon { transform: translateX(-2px); }
+  .gs-history { transition: border-color .15s, color .15s; }
+  .gs-history:hover { border-color: rgba(139,92,246,0.6) !important; color: #ddd6fe !important; }
   .gs-tab:hover { color: #f4f4f5 !important; }
   .gs-chip { transition: border-color .15s; }
   .gs-chip:hover { border-color: rgba(59,130,246,0.5) !important; }
@@ -314,6 +367,8 @@ const styles = {
   email: { marginTop: 2, fontSize: 12, color: "#a1a1aa", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   time: { display: "flex", alignItems: "center", gap: 6, marginTop: 8, fontSize: 12, color: "#71717a" },
   statusPill: { alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 10px", borderRadius: 999, border: "1px solid", fontSize: 11, fontWeight: 600 },
+  versionBtn: { display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 9px", borderRadius: 999, border: "1px solid #3f3f46", backgroundColor: "transparent", color: "#a1a1aa", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" },
+  versionBtnActive: { color: "#c4b5fd", backgroundColor: "rgba(139,92,246,0.12)", borderColor: "rgba(139,92,246,0.35)" },
   statusDot: { width: 6, height: 6, borderRadius: "50%" },
   sectionLabel: { display: "block", marginBottom: 8, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em", color: "#71717a" },
   note: { padding: 12, borderRadius: 8, fontSize: 13, lineHeight: 1.6, color: "#d4d4d8", backgroundColor: "#121215", border: "1px solid #27272a", whiteSpace: "pre-wrap", wordBreak: "break-word" },

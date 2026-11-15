@@ -9,7 +9,8 @@ export default function useNotifications() {
   useEffect(() => {
     // 1. Lấy lịch sử thông báo
     notificationApi.getMine()
-      .then(({ data }) => setItems(data || []))
+      // BE mới có phân trang: data có thể là mảng hoặc { notifications, pagination }
+      .then(({ data }) => setItems(Array.isArray(data) ? data : data?.notifications || []))
       .catch(console.error);
 
     // 2. Nghe thông báo Real-time qua Socket.io

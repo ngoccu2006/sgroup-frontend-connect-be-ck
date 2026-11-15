@@ -1,18 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { io } from "socket.io-client";
 import { BASE_URL, getToken } from "../api/client";
 import { notificationApi } from "../api/notifications";
 
 export default function useNotifications() {
   const [items, setItems] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const fetchNotifications = useCallback(() => {
+    notificationApi.getMine({ limit: 50, sortBy: "created_at", order: "DESC" })
+      .then(({ data }) => {
+        const notifs = data || [];
+        setItems(notifs);
+        setUnreadCount(notifs.filter((n) => !n.is_read).length);
+      })
+      .catch(console.error);
+  }, []);
 
   useEffect(() => {
-    // 1. Lấy lịch sử thông báo
-    notificationApi.getMine()
-      .then(({ data }) => setItems(data || []))
-      .catch(console.error);
+    fetchNotifications();
 
-    // 2. Nghe thông báo Real-time qua Socket.io
     const token = getToken();
     if (!token) return;
 
@@ -20,6 +27,7 @@ export default function useNotifications() {
 
     socket.on("new_notification", (n) => {
       setItems((prev) => [n, ...prev]);
+      setUnreadCount((c) => c + 1);
     });
 
     socket.on("connect_error", (err) => {
@@ -27,18 +35,17 @@ export default function useNotifications() {
     });
 
     return () => socket.disconnect();
-  }, []);
+  }, [fetchNotifications]);
 
   const markAsRead = async (id) => {
     try {
       await notificationApi.markAsRead(id);
       setItems((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
+      setUnreadCount((c) => Math.max(0, c - 1));
     } catch (err) {
       console.error(err);
     }
   };
 
-  const unread = items.filter((n) => !n.is_read).length;
-
-  return { items, unread, markAsRead };
+  return { items, unread: unreadCount, markAsRead, refresh: fetchNotifications };
 }

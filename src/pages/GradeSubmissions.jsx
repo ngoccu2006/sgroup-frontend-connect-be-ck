@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import { submissionApi } from "../api/submissions";
 import {
   ArrowLeft, ExternalLink, Save, ClipboardCheck, Inbox, CircleCheck, Clock, Search, Code2, FileArchive,
-  TrendingUp, Check,
+  TrendingUp, Check, ChevronLeft, ChevronRight, ArrowUpDown, X, RotateCcw,
 } from "lucide-react";
 
 export default function GradeSubmissions() {
@@ -11,17 +11,97 @@ export default function GradeSubmissions() {
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // UI state (lọc phía client + trạng thái nút lưu)
+  // Pagination, filtering, sorting, search
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
   const [filter, setFilter] = useState("ALL");
+  const [sortBy, setSortBy] = useState("submitted_at");
+  const [sortOrder, setSortOrder] = useState("DESC");
   const [savingId, setSavingId] = useState(null);
 
-  useEffect(() => {
-    submissionApi.getByAssignment(id)
-      .then(({ data }) => setSubmissions(data || []))
-      .catch((e) => alert(e.message))
+  // Debounce search
+  const debounceRef = useRef(null);
+
+  // Overall counts for stats
+  const [counts, setCounts] = useState({ total: 0, graded: 0, pending: 0 });
+
+  const loadStats = () => {
+    Promise.all([
+      submissionApi.getByAssignment(id, { limit: 1 }).then(r => r.pagination?.total || 0).catch(() => 0),
+      submissionApi.getByAssignment(id, { status: "GRADED", limit: 1 }).then(r => r.pagination?.total || 0).catch(() => 0),
+      submissionApi.getByAssignment(id, { status: "PENDING", limit: 1 }).then(r => r.pagination?.total || 0).catch(() => 0),
+    ]).then(([tot, graded, pending]) => {
+      setCounts({ total: tot, graded, pending });
+    });
+  };
+
+  const loadSubmissions = () => {
+    setLoading(true);
+    submissionApi.getByAssignment(id, {
+      page,
+      limit,
+      q: search,
+      status: filter !== "ALL" ? filter : "",
+      sortBy,
+      order: sortOrder,
+    })
+      .then((res) => {
+        const items = res.data || res.items || [];
+        setSubmissions(items);
+        setTotal(res.pagination?.total ?? items.length);
+        setTotalPages(res.pagination?.totalPages ?? 1);
+      })
+      .catch((e) => alert(e.message || "Lỗi tải danh sách bài nộp"))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadStats();
   }, [id]);
+
+  useEffect(() => {
+    loadSubmissions();
+  }, [id, page, limit, search, filter, sortBy, sortOrder]);
+
+  const handleSearchChange = (value) => {
+    setSearchTerm(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setSearch(value.trim());
+      setPage(1);
+    }, 300);
+  };
+
+  const handleClearSearch = () => {
+    setSearchTerm("");
+    setSearch("");
+    setPage(1);
+  };
+
+  const handleFilterChange = (newFilter) => {
+    setFilter(newFilter);
+    setPage(1);
+  };
+
+  const handleSortChange = (e) => {
+    const [newSortBy, newOrder] = e.target.value.split(":");
+    setSortBy(newSortBy);
+    setSortOrder(newOrder);
+    setPage(1);
+  };
+
+  const handleResetFilters = () => {
+    setSearchTerm("");
+    setSearch("");
+    setFilter("ALL");
+    setSortBy("submitted_at");
+    setSortOrder("DESC");
+    setPage(1);
+  };
 
   const handleGrade = async (submissionId, form) => {
     const score = Number(form.score.value);
@@ -29,6 +109,7 @@ export default function GradeSubmissions() {
     try {
       const { data } = await submissionApi.grade(submissionId, score, feedback);
       setSubmissions((prev) => prev.map((s) => (s.id === submissionId ? { ...s, ...data } : s)));
+      loadStats();
       alert("Đã cập nhật điểm và thông báo tới học viên!");
     } catch (e) {
       alert(e.message || "Lỗi khi chấm điểm");
@@ -42,33 +123,14 @@ export default function GradeSubmissions() {
     setSavingId(null);
   };
 
-  if (loading) {
-    return (
-      <div style={styles.center}>
-        <style>{css}</style>
-        <div className="gs-spinner" />
-        Đang tải danh sách bài nộp...
-      </div>
-    );
-  }
-
   const isGraded = (s) => s.score !== null && s.score !== undefined;
-  const gradedCount = submissions.filter(isGraded).length;
-  const pendingCount = submissions.length - gradedCount;
-  const gradedPercent = submissions.length ? Math.round((gradedCount / submissions.length) * 100) : 0;
-
-  const keyword = search.trim().toLowerCase();
-  const visible = submissions.filter((s) => {
-    if (filter === "PENDING" && isGraded(s)) return false;
-    if (filter === "GRADED" && !isGraded(s)) return false;
-    if (!keyword) return true;
-    return (s.member_name || "").toLowerCase().includes(keyword) || (s.member_email || "").toLowerCase().includes(keyword);
-  });
+  const gradedPercent = counts.total ? Math.round((counts.graded / counts.total) * 100) : 0;
+  const hasActiveFilters = Boolean(search || filter !== "ALL" || sortBy !== "submitted_at" || sortOrder !== "DESC");
 
   const tabs = [
-    { key: "ALL", label: "Tất cả", count: submissions.length },
-    { key: "PENDING", label: "Chờ chấm", count: pendingCount },
-    { key: "GRADED", label: "Đã chấm", count: gradedCount },
+    { key: "ALL", label: "Tất cả", count: counts.total },
+    { key: "PENDING", label: "Chờ chấm", count: counts.pending },
+    { key: "GRADED", label: "Đã chấm", count: counts.graded },
   ];
 
   return (
@@ -90,15 +152,16 @@ export default function GradeSubmissions() {
 
       {/* Thống kê */}
       <div style={styles.statGrid}>
-        <StatCard label="Tổng bài nộp" value={submissions.length} hint="bài làm đã gửi" icon={<Inbox size={18} />} color="#a1a1aa" />
-        <StatCard label="Đã chấm" value={gradedCount} hint="đã công bố điểm" icon={<CircleCheck size={18} />} color="#34d399" />
-        <StatCard label="Chờ chấm" value={pendingCount} hint="cần xem xét" icon={<Clock size={18} />} color="#fbbf24" />
+        <StatCard label="Tổng bài nộp" value={counts.total} hint="bài làm đã gửi" icon={<Inbox size={18} />} color="#a1a1aa" />
+        <StatCard label="Đã chấm" value={counts.graded} hint="đã công bố điểm" icon={<CircleCheck size={18} />} color="#34d399" />
+        <StatCard label="Chờ chấm" value={counts.pending} hint="cần xem xét" icon={<Clock size={18} />} color="#fbbf24" />
       </div>
+
       <div style={styles.progressCard}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}>
           <TrendingUp size={18} color="#34d399" />
           <strong style={{ color: "#f4f4f5", fontWeight: 600 }}>Tiến độ chấm:</strong>
-          <span style={{ color: "#a1a1aa" }}>{gradedCount}/{submissions.length} học viên</span>
+          <span style={{ color: "#a1a1aa" }}>{counts.graded}/{counts.total} học viên</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flex: "1 1 240px", maxWidth: 420 }}>
           <div style={styles.progressTrack}>
@@ -108,23 +171,13 @@ export default function GradeSubmissions() {
         </div>
       </div>
 
-      {/* Toolbar */}
+      {/* Toolbar: Tìm kiếm, Lọc trạng thái, Sắp xếp */}
       <div style={styles.toolbar}>
-        <div style={styles.searchWrap}>
-          <Search size={16} style={styles.searchIcon} />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Tìm theo tên hoặc email học viên..."
-            className="gs-input"
-            style={{ ...styles.input, height: 38, paddingLeft: 36, backgroundColor: "#18181b" }}
-          />
-        </div>
         <div style={styles.tabs}>
           {tabs.map((t) => (
             <button
               key={t.key}
-              onClick={() => setFilter(t.key)}
+              onClick={() => handleFilterChange(t.key)}
               className="gs-tab"
               style={{ ...styles.tab, ...(filter === t.key ? styles.tabActive : {}) }}
             >
@@ -132,19 +185,82 @@ export default function GradeSubmissions() {
             </button>
           ))}
         </div>
+
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", flex: 1, justifyContent: "flex-end" }}>
+          {/* Search with Debounce & Clear */}
+          <div style={styles.searchWrap}>
+            <Search size={16} style={styles.searchIcon} />
+            <input
+              value={searchTerm}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder="Tìm theo tên hoặc email học viên..."
+              className="gs-input"
+              style={{ ...styles.input, height: 38, paddingLeft: 36, paddingRight: searchTerm ? 32 : 12, backgroundColor: "#18181b" }}
+            />
+            {searchTerm && (
+              <button type="button" onClick={handleClearSearch} style={styles.clearBtn} title="Xóa tìm kiếm">
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          {/* Sắp xếp */}
+          <div style={{ position: "relative" }}>
+            <ArrowUpDown size={14} style={styles.selectIcon} />
+            <select
+              value={`${sortBy}:${sortOrder}`}
+              onChange={handleSortChange}
+              className="gs-input"
+              style={{ ...styles.input, height: 38, paddingLeft: 32, paddingRight: 16, backgroundColor: "#18181b", cursor: "pointer", appearance: "none" }}
+            >
+              <option value="submitted_at:DESC">Mới nộp nhất</option>
+              <option value="submitted_at:ASC">Nộp sớm nhất</option>
+              <option value="score:DESC">Điểm: Cao → Thấp</option>
+              <option value="score:ASC">Điểm: Thấp → Cao</option>
+            </select>
+          </div>
+
+          {/* Limit selector */}
+          <select
+            value={limit}
+            onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+            className="gs-input"
+            style={{ ...styles.input, height: 38, width: 80, padding: "0 10px", backgroundColor: "#18181b", cursor: "pointer", appearance: "none" }}
+          >
+            <option value={5}>5 / trang</option>
+            <option value={10}>10 / trang</option>
+            <option value={20}>20 / trang</option>
+          </select>
+
+          {hasActiveFilters && (
+            <button onClick={handleResetFilters} className="gs-btn-ghost" style={styles.resetBtn}>
+              <RotateCcw size={13} /> Xóa lọc
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Danh sách bài nộp */}
-      {visible.length === 0 ? (
+      {loading ? (
+        <div style={styles.center}>
+          <div className="gs-spinner" />
+          Đang tải danh sách bài nộp...
+        </div>
+      ) : submissions.length === 0 ? (
         <div style={styles.empty}>
           <div style={styles.emptyIcon}><Inbox size={22} /></div>
           <div style={{ fontWeight: 500, color: "#e4e4e7" }}>
-            {submissions.length === 0 ? "Chưa có học viên nào nộp bài." : "Không có bài nộp phù hợp bộ lọc."}
+            {hasActiveFilters ? "Không có bài nộp nào phù hợp bộ lọc." : "Chưa có học viên nào nộp bài."}
           </div>
+          {hasActiveFilters && (
+            <button onClick={handleResetFilters} style={{ ...styles.resetBtn, marginTop: 12 }}>
+              <RotateCcw size={13} /> Xóa bộ lọc và xem tất cả
+            </button>
+          )}
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {visible.map((s) => {
+          {submissions.map((s) => {
             const graded = isGraded(s);
             const accent = graded ? "#34d399" : "#fbbf24";
             return (
@@ -222,6 +338,36 @@ export default function GradeSubmissions() {
               </article>
             );
           })}
+
+          {/* Pagination Footer */}
+          <div style={styles.paginationFooter}>
+            <span style={{ fontSize: 13, color: "#a1a1aa" }}>
+              Hiển thị <strong style={{ color: "#f4f4f5" }}>{submissions.length}</strong> /{" "}
+              <strong style={{ color: "#f4f4f5" }}>{total}</strong> bài nộp
+            </span>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="gs-btn-page"
+                style={{ ...styles.pageBtn, ...(page <= 1 ? styles.pageBtnDisabled : {}) }}
+              >
+                <ChevronLeft size={16} /> Trước
+              </button>
+              <span style={{ fontSize: 13, color: "#a1a1aa" }}>
+                Trang <span style={{ color: "#f4f4f5", fontWeight: 700 }}>{page}</span> / {Math.max(1, totalPages)}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="gs-btn-page"
+                style={{ ...styles.pageBtn, ...(page >= totalPages ? styles.pageBtnDisabled : {}) }}
+              >
+                Sau <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -252,7 +398,6 @@ const getInitials = (name) =>
     .join("")
     .toUpperCase();
 
-// Hover / focus / responsive / animation không làm được bằng inline style
 const css = `
   .gs-card { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; transition: border-color .2s; }
   .gs-card .gs-col { padding-right: 20px; border-right: 1px solid #27272a; }
@@ -276,6 +421,8 @@ const css = `
   .gs-btn-save { transition: background-color .15s, transform .1s; }
   .gs-btn-save:hover:not(:disabled) { background-color: #059669 !important; }
   .gs-btn-save:active:not(:disabled) { transform: scale(0.98); }
+  .gs-btn-page { transition: background-color .15s, color .15s, border-color .15s; }
+  .gs-btn-page:hover:not(:disabled) { background-color: #27272a !important; border-color: #3f3f46 !important; color: #f4f4f5 !important; }
   .gs-pulse { box-shadow: 0 0 0 0 rgba(245,158,11,0.5); animation: gs-pulse 2s infinite cubic-bezier(0.66,0,0,1); }
   @keyframes gs-pulse { to { box-shadow: 0 0 0 6px rgba(245,158,11,0); } }
   .gs-spinner { width: 28px; height: 28px; margin: 0 auto 12px; border: 3px solid #27272a; border-top-color: #3b82f6; border-radius: 50%; animation: gs-spin .8s linear infinite; }
@@ -300,9 +447,12 @@ const styles = {
   progressTrack: { flex: 1, height: 8, borderRadius: 999, overflow: "hidden", backgroundColor: "#27272a" },
   progressFill: { height: "100%", borderRadius: 999, backgroundColor: "#10b981", transition: "width .5s" },
 
-  toolbar: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, margin: "32px 0 20px" },
-  searchWrap: { position: "relative", flex: "1 1 260px", maxWidth: 320 },
+  toolbar: { display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12, margin: "32px 0 20px" },
+  searchWrap: { position: "relative", flex: "1 1 240px", maxWidth: 300 },
   searchIcon: { position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#71717a", pointerEvents: "none" },
+  selectIcon: { position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#71717a", pointerEvents: "none" },
+  clearBtn: { position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "#71717a", cursor: "pointer", display: "flex", alignItems: "center", padding: 4 },
+  resetBtn: { display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 8, fontSize: 12, color: "#a1a1aa", border: "1px solid #27272a", backgroundColor: "#18181b", cursor: "pointer" },
   tabs: { display: "flex", gap: 2, padding: 2, borderRadius: 10, backgroundColor: "#18181b", border: "1px solid #27272a" },
   tab: { padding: "6px 12px", borderRadius: 8, border: "1px solid transparent", backgroundColor: "transparent", color: "#a1a1aa", fontSize: 12, fontWeight: 500, cursor: "pointer", whiteSpace: "nowrap" },
   tabActive: { backgroundColor: "#27272a", borderColor: "#3f3f46", color: "#f4f4f5" },
@@ -327,4 +477,8 @@ const styles = {
 
   empty: { display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "48px 16px", textAlign: "center", color: "#a1a1aa", fontSize: 13, borderRadius: 12, border: "1px dashed #27272a", backgroundColor: "rgba(24,24,27,0.4)" },
   emptyIcon: { width: 48, height: 48, marginBottom: 4, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", color: "#71717a", backgroundColor: "#2a2a2d" },
+
+  paginationFooter: { display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "16px 20px", marginTop: 8, borderRadius: 12, backgroundColor: "#18181b", border: "1px solid #27272a" },
+  pageBtn: { display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", borderRadius: 8, border: "1px solid #27272a", backgroundColor: "#121215", color: "#f4f4f5", fontSize: 12, fontWeight: 500, cursor: "pointer" },
+  pageBtnDisabled: { opacity: 0.35, cursor: "not-allowed" },
 };

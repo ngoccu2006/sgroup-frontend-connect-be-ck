@@ -1,14 +1,15 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getUser } from "../api/client";
-import { classApi } from "../api/classes";
+import { classApi, classMemberApi } from "../api/classes";
 import { lessonApi } from "../api/lessons";
 import { assignmentApi } from "../api/assignments";
 import { analyticsApi } from "../api/analytics";
 import {
   CheckCircle, FileText, ArrowLeft, Plus, Download, X, Target, BookOpen, ClipboardList, Clock,
   AlarmClockOff, Infinity as InfinityIcon, ArrowRight, Check, ListOrdered, Trophy, CalendarClock,
-  AlertTriangle, FilePlus2, BookPlus,
+  AlertTriangle, FilePlus2, BookPlus, Search, ArrowUpDown, ChevronLeft, ChevronRight, RotateCcw,
+  Users, Mail, UserPlus,
 } from "lucide-react";
 
 export default function ClassDetail() {
@@ -16,45 +17,201 @@ export default function ClassDetail() {
   const user = getUser();
   const isMentorOrAdmin = ["MENTOR", "ADMIN"].includes(user?.role);
 
+  // Tabs: "CONTENT" (Lessons & Assignments) or "MEMBERS" (Class Members)
+  const [activeTab, setActiveTab] = useState("CONTENT");
+
+  // --- Lessons State ---
   const [lessons, setLessons] = useState([]);
+  const [lessonLoading, setLessonLoading] = useState(false);
+  const [lessonPage, setLessonPage] = useState(1);
+  const [lessonLimit, setLessonLimit] = useState(6);
+  const [lessonTotal, setLessonTotal] = useState(0);
+  const [lessonTotalPages, setLessonTotalPages] = useState(1);
+  const [lessonSearch, setLessonSearch] = useState("");
+  const [lessonSearchTerm, setLessonSearchTerm] = useState("");
+  const [lessonSort, setLessonSort] = useState("order:ASC");
+
+  // --- Assignments State ---
   const [assignments, setAssignments] = useState([]);
+  const [assignmentLoading, setAssignmentLoading] = useState(false);
+  const [assignmentPage, setAssignmentPage] = useState(1);
+  const [assignmentLimit, setAssignmentLimit] = useState(6);
+  const [assignmentTotal, setAssignmentTotal] = useState(0);
+  const [assignmentTotalPages, setAssignmentTotalPages] = useState(1);
+  const [assignmentSearch, setAssignmentSearch] = useState("");
+  const [assignmentSearchTerm, setAssignmentSearchTerm] = useState("");
+  const [assignmentSort, setAssignmentSort] = useState("created_at:DESC");
+
+  // --- Members State ---
+  const [members, setMembers] = useState([]);
+  const [memberLoading, setMemberLoading] = useState(false);
+  const [memberPage, setMemberPage] = useState(1);
+  const [memberLimit, setMemberLimit] = useState(8);
+  const [memberTotal, setMemberTotal] = useState(0);
+  const [memberTotalPages, setMemberTotalPages] = useState(1);
+  const [memberSearch, setMemberSearch] = useState("");
+  const [memberSearchTerm, setMemberSearchTerm] = useState("");
+  const [memberSort, setMemberSort] = useState("joined_at:DESC");
+
+  // Progress & Error
   const [progress, setProgress] = useState(null);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
 
-  // States cho Modals
+  // Modals
   const [showLessonModal, setShowLessonModal] = useState(false);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
   const [lessonForm, setLessonForm] = useState({ title: "", content: "", order: 1 });
   const [assignmentForm, setAssignmentForm] = useState({ title: "", description: "", deadline: "", maximum_score: 10 });
   const [submitting, setSubmitting] = useState(false);
 
-  // UI state (trạng thái đang xử lý của nút)
+  // Action states
   const [completingId, setCompletingId] = useState(null);
   const [exporting, setExporting] = useState(false);
 
-  // 1. Hàm loadProgress
+  // Debounce refs
+  const lessonDebounce = useRef(null);
+  const assignmentDebounce = useRef(null);
+  const memberDebounce = useRef(null);
+
+  // 1. Load Progress
   const loadProgress = useCallback(() => {
     return classApi.getProgress(classId)
       .then(({ data }) => setProgress(data))
       .catch(() => {});
   }, [classId]);
 
-  // 2. Hàm loadData - BỎ các lệnh setState đồng bộ ở đầu hàm
-  const loadData = useCallback(() => {
-    Promise.all([
-      lessonApi.getByClass(classId).then(({ data }) => setLessons(data || [])).catch(() => setLessons([])),
-      assignmentApi.getByClass(classId).then(({ data }) => setAssignments(data || [])).catch(() => setAssignments([])),
-      loadProgress(),
-    ])
-      .catch((e) => setError(e.message || "Lỗi tải dữ liệu lớp học"))
-      .finally(() => setLoading(false));
-  }, [classId, loadProgress]);
+  // 2. Load Lessons
+  const loadLessons = useCallback(() => {
+    setLessonLoading(true);
+    const [sortBy, sortOrder] = lessonSort.split(":");
+    lessonApi.getByClass(classId, {
+      page: lessonPage,
+      limit: lessonLimit,
+      q: lessonSearch,
+      sortBy,
+      order: sortOrder,
+    })
+      .then((res) => {
+        const items = res.data || res.lessons || [];
+        setLessons(items);
+        setLessonTotal(res.pagination?.total ?? items.length);
+        setLessonTotalPages(res.pagination?.totalPages ?? 1);
+      })
+      .catch(() => setLessons([]))
+      .finally(() => setLessonLoading(false));
+  }, [classId, lessonPage, lessonLimit, lessonSearch, lessonSort]);
 
-  // 3. Gọi trong useEffect
+  // 3. Load Assignments
+  const loadAssignments = useCallback(() => {
+    setAssignmentLoading(true);
+    const [sortBy, sortOrder] = assignmentSort.split(":");
+    assignmentApi.getByClass(classId, {
+      page: assignmentPage,
+      limit: assignmentLimit,
+      q: assignmentSearch,
+      sortBy,
+      order: sortOrder,
+    })
+      .then((res) => {
+        const items = res.data || res.assignments || [];
+        setAssignments(items);
+        setAssignmentTotal(res.pagination?.total ?? items.length);
+        setAssignmentTotalPages(res.pagination?.totalPages ?? 1);
+      })
+      .catch(() => setAssignments([]))
+      .finally(() => setAssignmentLoading(false));
+  }, [classId, assignmentPage, assignmentLimit, assignmentSearch, assignmentSort]);
+
+  // 4. Load Members
+  const loadMembers = useCallback(() => {
+    setMemberLoading(true);
+    const [sortBy, sortOrder] = memberSort.split(":");
+    classMemberApi.getMembers(classId, {
+      page: memberPage,
+      limit: memberLimit,
+      q: memberSearch,
+      sortBy,
+      order: sortOrder,
+    })
+      .then((res) => {
+        const items = res.data || res.members || [];
+        setMembers(items);
+        setMemberTotal(res.pagination?.total ?? items.length);
+        setMemberTotalPages(res.pagination?.totalPages ?? 1);
+      })
+      .catch(() => setMembers([]))
+      .finally(() => setMemberLoading(false));
+  }, [classId, memberPage, memberLimit, memberSearch, memberSort]);
+
+  // Initial load
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    Promise.all([loadProgress()])
+      .catch((e) => setError(e.message || "Lỗi tải dữ liệu lớp học"))
+      .finally(() => setInitialLoading(false));
+  }, [loadProgress]);
+
+  useEffect(() => {
+    loadLessons();
+  }, [loadLessons]);
+
+  useEffect(() => {
+    loadAssignments();
+  }, [loadAssignments]);
+
+  useEffect(() => {
+    if (activeTab === "MEMBERS") {
+      loadMembers();
+    }
+  }, [activeTab, loadMembers]);
+
+  // Handlers for Lessons
+  const handleLessonSearch = (val) => {
+    setLessonSearchTerm(val);
+    if (lessonDebounce.current) clearTimeout(lessonDebounce.current);
+    lessonDebounce.current = setTimeout(() => {
+      setLessonSearch(val.trim());
+      setLessonPage(1);
+    }, 300);
+  };
+
+  const handleLessonClearSearch = () => {
+    setLessonSearchTerm("");
+    setLessonSearch("");
+    setLessonPage(1);
+  };
+
+  // Handlers for Assignments
+  const handleAssignmentSearch = (val) => {
+    setAssignmentSearchTerm(val);
+    if (assignmentDebounce.current) clearTimeout(assignmentDebounce.current);
+    assignmentDebounce.current = setTimeout(() => {
+      setAssignmentSearch(val.trim());
+      setAssignmentPage(1);
+    }, 300);
+  };
+
+  const handleAssignmentClearSearch = () => {
+    setAssignmentSearchTerm("");
+    setAssignmentSearch("");
+    setAssignmentPage(1);
+  };
+
+  // Handlers for Members
+  const handleMemberSearch = (val) => {
+    setMemberSearchTerm(val);
+    if (memberDebounce.current) clearTimeout(memberDebounce.current);
+    memberDebounce.current = setTimeout(() => {
+      setMemberSearch(val.trim());
+      setMemberPage(1);
+    }, 300);
+  };
+
+  const handleMemberClearSearch = () => {
+    setMemberSearchTerm("");
+    setMemberSearch("");
+    setMemberPage(1);
+  };
 
   const handleComplete = async (lessonId) => {
     try {
@@ -66,7 +223,6 @@ export default function ClassDetail() {
     }
   };
 
-  // Xử lý tạo Bài học mới
   const handleCreateLesson = async (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -74,8 +230,9 @@ export default function ClassDetail() {
       await lessonApi.create({ ...lessonForm, class_id: classId, order: Number(lessonForm.order) });
       alert("Tạo bài học thành công!");
       setShowLessonModal(false);
-      setLessonForm({ title: "", content: "", order: lessons.length + 1 });
-      loadData();
+      setLessonForm({ title: "", content: "", order: lessonTotal + 1 });
+      loadLessons();
+      loadProgress();
     } catch (err) {
       alert(err.message || "Không thể tạo bài học");
     } finally {
@@ -83,7 +240,6 @@ export default function ClassDetail() {
     }
   };
 
-  // Xử lý tạo Bài tập mới
   const handleCreateAssignment = async (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -96,7 +252,7 @@ export default function ClassDetail() {
       alert("Tạo bài tập thành công! Thông báo đã được gửi tới học viên.");
       setShowAssignmentModal(false);
       setAssignmentForm({ title: "", description: "", deadline: "", maximum_score: 10 });
-      loadData();
+      loadAssignments();
     } catch (err) {
       alert(err.message || "Không thể tạo bài tập");
     } finally {
@@ -104,7 +260,6 @@ export default function ClassDetail() {
     }
   };
 
-  // Xuất Excel
   const handleExportExcel = async () => {
     try {
       await analyticsApi.exportExcel(classId);
@@ -125,7 +280,7 @@ export default function ClassDetail() {
     setExporting(false);
   };
 
-  if (loading) {
+  if (initialLoading) {
     return (
       <div style={styles.centerText}>
         <style>{css}</style>
@@ -148,7 +303,7 @@ export default function ClassDetail() {
     <div style={styles.page}>
       <style>{css}</style>
 
-      {/* Hàng trên: quay lại + xuất Excel */}
+      {/* Top navigation row */}
       <div style={styles.topRow}>
         <Link to="/classes" className="cd-back" style={styles.backBtn}>
           <ArrowLeft size={16} className="cd-back-icon" /> Quay lại danh sách lớp
@@ -194,106 +349,349 @@ export default function ClassDetail() {
             </div>
 
             <div style={styles.heroStats}>
-              <StatPill color="#3b82f6" label="Bài học" value={`${lessons.length} bài`} />
-              <StatPill color="#fbbf24" label="Bài tập" value={`${assignments.length} bài`} />
+              <StatPill color="#3b82f6" label="Bài học" value={`${lessonTotal} bài`} />
+              <StatPill color="#fbbf24" label="Bài tập" value={`${assignmentTotal} bài`} />
               <StatPill color="#34d399" label="Đã hoàn thành" value={`${progress.completedLessons || 0} bài`} valueColor="#34d399" />
             </div>
           </div>
         </section>
       )}
 
-      <div className="cd-grid">
-        {/* Cột 1: Danh sách Bài học */}
+      {/* Tab Switcher: Lộ trình bài giảng & Bài tập vs Học viên lớp */}
+      <div style={styles.tabBar}>
+        <button
+          onClick={() => setActiveTab("CONTENT")}
+          className="cd-tab"
+          style={{ ...styles.tabBtn, ...(activeTab === "CONTENT" ? styles.tabBtnActive : {}) }}
+        >
+          <BookOpen size={16} /> Lộ trình & Bài tập ({lessonTotal + assignmentTotal})
+        </button>
+        <button
+          onClick={() => setActiveTab("MEMBERS")}
+          className="cd-tab"
+          style={{ ...styles.tabBtn, ...(activeTab === "MEMBERS" ? styles.tabBtnActive : {}) }}
+        >
+          <Users size={16} /> Thành viên lớp học ({memberTotal})
+        </button>
+      </div>
+
+      {activeTab === "CONTENT" ? (
+        <div className="cd-grid">
+          {/* Cột 1: Danh sách Bài học */}
+          <section style={styles.sectionBox}>
+            <SectionHeader
+              icon={<BookOpen size={18} />}
+              color="#60a5fa"
+              title="Danh sách Bài học"
+              subtitle="Lộ trình bài giảng của lớp"
+              count={lessonTotal}
+              action={isMentorOrAdmin && (
+                <button onClick={() => setShowLessonModal(true)} className="cd-btn-primary" style={styles.addBtn}>
+                  <Plus size={14} /> Bài học
+                </button>
+              )}
+            />
+
+            {/* Toolbar Bài học */}
+            <div style={styles.sectionToolbar}>
+              <div style={styles.searchWrap}>
+                <Search size={14} style={styles.searchIcon} />
+                <input
+                  value={lessonSearchTerm}
+                  onChange={(e) => handleLessonSearch(e.target.value)}
+                  placeholder="Tìm bài học..."
+                  className="cd-input"
+                  style={{ ...styles.input, height: 34, paddingLeft: 32, paddingRight: lessonSearchTerm ? 28 : 10, fontSize: 12 }}
+                />
+                {lessonSearchTerm && (
+                  <button type="button" onClick={handleLessonClearSearch} style={styles.clearBtn}>
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+
+              <div style={{ position: "relative" }}>
+                <ArrowUpDown size={12} style={styles.sortIcon} />
+                <select
+                  value={lessonSort}
+                  onChange={(e) => { setLessonSort(e.target.value); setLessonPage(1); }}
+                  className="cd-input"
+                  style={{ ...styles.input, height: 34, paddingLeft: 28, paddingRight: 10, fontSize: 12, cursor: "pointer", appearance: "none" }}
+                >
+                  <option value="order:ASC">Thứ tự: 1 → N</option>
+                  <option value="order:DESC">Thứ tự: N → 1</option>
+                  <option value="title:ASC">Tên bài: A → Z</option>
+                  <option value="created_at:DESC">Mới tạo nhất</option>
+                </select>
+              </div>
+            </div>
+
+            {lessonLoading ? (
+              <div style={styles.smallCenter}>
+                <div className="cd-spinner cd-spinner-sm" /> Đang tải bài học...
+              </div>
+            ) : lessons.length === 0 ? (
+              <EmptyState icon={<BookOpen size={20} />} text={lessonSearch ? "Không có bài học phù hợp tìm kiếm." : "Lớp học này chưa có bài học nào."} />
+            ) : (
+              <div style={styles.list}>
+                {lessons.map((l, i) => (
+                  <div key={l.id} className="cd-item" style={styles.itemCard}>
+                    <div style={styles.orderCircle}>{l.order ?? (lessonPage - 1) * lessonLimit + i + 1}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <h4 className="cd-item-title" style={styles.itemTitle}>{l.title}</h4>
+                      {l.content && <p className="cd-clamp" style={styles.itemText}>{l.content}</p>}
+                    </div>
+                    <button
+                      onClick={() => onCompleteClick(l.id)}
+                      disabled={completingId === l.id}
+                      className="cd-btn-complete"
+                      style={styles.completeBtn}
+                    >
+                      {completingId === l.id ? <div className="cd-spinner cd-spinner-sm cd-spinner-green" /> : <CheckCircle size={15} />}
+                      Hoàn thành
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Phân trang bài học */}
+            {lessonTotalPages > 1 && (
+              <div style={styles.miniPagination}>
+                <button
+                  onClick={() => setLessonPage((p) => Math.max(1, p - 1))}
+                  disabled={lessonPage <= 1}
+                  className="cd-btn-page"
+                  style={{ ...styles.pageBtn, ...(lessonPage <= 1 ? styles.pageBtnDisabled : {}) }}
+                >
+                  <ChevronLeft size={14} />
+                </button>
+                <span style={{ fontSize: 12, color: "#a1a1aa" }}>
+                  Trang {lessonPage}/{lessonTotalPages} ({lessonTotal} bài)
+                </span>
+                <button
+                  onClick={() => setLessonPage((p) => Math.min(lessonTotalPages, p + 1))}
+                  disabled={lessonPage >= lessonTotalPages}
+                  className="cd-btn-page"
+                  style={{ ...styles.pageBtn, ...(lessonPage >= lessonTotalPages ? styles.pageBtnDisabled : {}) }}
+                >
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+            )}
+          </section>
+
+          {/* Cột 2: Danh sách Bài tập */}
+          <section style={styles.sectionBox}>
+            <SectionHeader
+              icon={<ClipboardList size={18} />}
+              color="#fbbf24"
+              title="Bài tập về nhà"
+              subtitle="Nộp bài & nhận phản hồi từ giảng viên"
+              count={assignmentTotal}
+              action={isMentorOrAdmin && (
+                <button onClick={() => setShowAssignmentModal(true)} className="cd-btn-amber" style={{ ...styles.addBtn, ...styles.addBtnAmber }}>
+                  <Plus size={14} /> Bài tập
+                </button>
+              )}
+            />
+
+            {/* Toolbar Bài tập */}
+            <div style={styles.sectionToolbar}>
+              <div style={styles.searchWrap}>
+                <Search size={14} style={styles.searchIcon} />
+                <input
+                  value={assignmentSearchTerm}
+                  onChange={(e) => handleAssignmentSearch(e.target.value)}
+                  placeholder="Tìm bài tập..."
+                  className="cd-input cd-input-amber"
+                  style={{ ...styles.input, height: 34, paddingLeft: 32, paddingRight: assignmentSearchTerm ? 28 : 10, fontSize: 12 }}
+                />
+                {assignmentSearchTerm && (
+                  <button type="button" onClick={handleAssignmentClearSearch} style={styles.clearBtn}>
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+
+              <div style={{ position: "relative" }}>
+                <ArrowUpDown size={12} style={styles.sortIcon} />
+                <select
+                  value={assignmentSort}
+                  onChange={(e) => { setAssignmentSort(e.target.value); setAssignmentPage(1); }}
+                  className="cd-input cd-input-amber"
+                  style={{ ...styles.input, height: 34, paddingLeft: 28, paddingRight: 10, fontSize: 12, cursor: "pointer", appearance: "none" }}
+                >
+                  <option value="created_at:DESC">Mới tạo nhất</option>
+                  <option value="deadline:ASC">Hạn nộp gần nhất</option>
+                  <option value="maximum_score:DESC">Điểm tối đa cao</option>
+                  <option value="title:ASC">Tên: A → Z</option>
+                </select>
+              </div>
+            </div>
+
+            {assignmentLoading ? (
+              <div style={styles.smallCenter}>
+                <div className="cd-spinner cd-spinner-sm" /> Đang tải bài tập...
+              </div>
+            ) : assignments.length === 0 ? (
+              <EmptyState icon={<FileText size={20} />} text={assignmentSearch ? "Không có bài tập phù hợp tìm kiếm." : "Lớp học này chưa có bài tập nào."} />
+            ) : (
+              <div style={styles.list}>
+                {assignments.map((a) => {
+                  const dl = describeDeadline(a.deadline);
+                  return (
+                    <div key={a.id} className={`cd-item ${dl.overdue ? "cd-item-overdue" : "cd-item-amber"}`} style={{ ...styles.itemCard, alignItems: "center" }}>
+                      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+                        <h4 className="cd-item-title" style={styles.itemTitle}>{a.title}</h4>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                          <span style={{ ...styles.chip, ...dl.style }}>
+                            {dl.icon} {dl.text}
+                          </span>
+                          {a.maximum_score != null && (
+                            <span style={{ ...styles.chip, ...styles.chipBlue }}>
+                              <Trophy size={12} /> {a.maximum_score} điểm
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <Link
+                        to={`/assignments/${a.id}`}
+                        className={dl.overdue ? "cd-btn-ghost" : "cd-btn-detail"}
+                        style={{ ...styles.detailBtn, ...(dl.overdue ? styles.detailBtnMuted : {}) }}
+                      >
+                        Chi tiết & Nộp bài <ArrowRight size={14} />
+                      </Link>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Phân trang bài tập */}
+            {assignmentTotalPages > 1 && (
+              <div style={styles.miniPagination}>
+                <button
+                  onClick={() => setAssignmentPage((p) => Math.max(1, p - 1))}
+                  disabled={assignmentPage <= 1}
+                  className="cd-btn-page"
+                  style={{ ...styles.pageBtn, ...(assignmentPage <= 1 ? styles.pageBtnDisabled : {}) }}
+                >
+                  <ChevronLeft size={14} />
+                </button>
+                <span style={{ fontSize: 12, color: "#a1a1aa" }}>
+                  Trang {assignmentPage}/{assignmentTotalPages} ({assignmentTotal} bài)
+                </span>
+                <button
+                  onClick={() => setAssignmentPage((p) => Math.min(assignmentTotalPages, p + 1))}
+                  disabled={assignmentPage >= assignmentTotalPages}
+                  className="cd-btn-page"
+                  style={{ ...styles.pageBtn, ...(assignmentPage >= assignmentTotalPages ? styles.pageBtnDisabled : {}) }}
+                >
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+            )}
+          </section>
+        </div>
+      ) : (
+        /* Tab 2: Danh sách Học viên lớp */
         <section style={styles.sectionBox}>
           <SectionHeader
-            icon={<BookOpen size={18} />}
-            color="#60a5fa"
-            title="Danh sách Bài học"
-            subtitle="Lộ trình bài giảng của lớp"
-            count={lessons.length}
-            action={isMentorOrAdmin && (
-              <button onClick={() => setShowLessonModal(true)} className="cd-btn-primary" style={styles.addBtn}>
-                <Plus size={14} /> Bài học
-              </button>
-            )}
+            icon={<Users size={18} />}
+            color="#34d399"
+            title="Thành viên Lớp Học"
+            subtitle="Danh sách học viên tham gia lớp"
+            count={memberTotal}
           />
 
-          {lessons.length === 0 ? (
-            <EmptyState icon={<BookOpen size={20} />} text="Lớp học này chưa có bài học nào." />
+          <div style={styles.sectionToolbar}>
+            <div style={{ ...styles.searchWrap, maxWidth: 300 }}>
+              <Search size={14} style={styles.searchIcon} />
+              <input
+                value={memberSearchTerm}
+                onChange={(e) => handleMemberSearch(e.target.value)}
+                placeholder="Tìm theo tên hoặc email học viên..."
+                className="cd-input"
+                style={{ ...styles.input, height: 36, paddingLeft: 34, paddingRight: memberSearchTerm ? 28 : 10 }}
+              />
+              {memberSearchTerm && (
+                <button type="button" onClick={handleMemberClearSearch} style={styles.clearBtn}>
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+
+            <div style={{ position: "relative" }}>
+              <ArrowUpDown size={12} style={styles.sortIcon} />
+              <select
+                value={memberSort}
+                onChange={(e) => { setMemberSort(e.target.value); setMemberPage(1); }}
+                className="cd-input"
+                style={{ ...styles.input, height: 36, paddingLeft: 28, paddingRight: 12, cursor: "pointer", appearance: "none" }}
+              >
+                <option value="joined_at:DESC">Mới tham gia nhất</option>
+                <option value="joined_at:ASC">Tham gia sớm nhất</option>
+                <option value="full_name:ASC">Tên: A → Z</option>
+              </select>
+            </div>
+          </div>
+
+          {memberLoading ? (
+            <div style={styles.smallCenter}>
+              <div className="cd-spinner" /> Đang tải học viên...
+            </div>
+          ) : members.length === 0 ? (
+            <EmptyState icon={<Users size={20} />} text={memberSearch ? "Không tìm thấy học viên nào phù hợp tìm kiếm." : "Lớp học này chưa có học viên nào."} />
           ) : (
-            <div style={styles.list}>
-              {lessons.map((l, i) => (
-                <div key={l.id} className="cd-item" style={styles.itemCard}>
-                  <div style={styles.orderCircle}>{l.order ?? i + 1}</div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <h4 className="cd-item-title" style={styles.itemTitle}>{l.title}</h4>
-                    {l.content && <p className="cd-clamp" style={styles.itemText}>{l.content}</p>}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
+              {members.map((m) => (
+                <div key={m.member_id} style={styles.memberCard}>
+                  <div style={styles.memberAvatar}>
+                    {getInitials(m.full_name || m.name)}
                   </div>
-                  <button
-                    onClick={() => onCompleteClick(l.id)}
-                    disabled={completingId === l.id}
-                    className="cd-btn-complete"
-                    style={styles.completeBtn}
-                  >
-                    {completingId === l.id ? <div className="cd-spinner cd-spinner-sm cd-spinner-green" /> : <CheckCircle size={15} />}
-                    Hoàn thành
-                  </button>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={styles.memberName}>{m.full_name || m.name || "Học viên"}</div>
+                    <div style={styles.memberEmail}>{m.email}</div>
+                    <div style={styles.memberDate}>
+                      Tham gia: {m.joined_at ? new Date(m.joined_at).toLocaleDateString("vi-VN") : "N/A"}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
           )}
-        </section>
 
-        {/* Cột 2: Danh sách Bài tập */}
-        <section style={styles.sectionBox}>
-          <SectionHeader
-            icon={<ClipboardList size={18} />}
-            color="#fbbf24"
-            title="Bài tập về nhà"
-            subtitle="Nộp bài & nhận phản hồi từ giảng viên"
-            count={assignments.length}
-            action={isMentorOrAdmin && (
-              <button onClick={() => setShowAssignmentModal(true)} className="cd-btn-amber" style={{ ...styles.addBtn, ...styles.addBtnAmber }}>
-                <Plus size={14} /> Bài tập
-              </button>
-            )}
-          />
-
-          {assignments.length === 0 ? (
-            <EmptyState icon={<FileText size={20} />} text="Lớp học này chưa có bài tập nào." />
-          ) : (
-            <div style={styles.list}>
-              {assignments.map((a) => {
-                const dl = describeDeadline(a.deadline);
-                return (
-                  <div key={a.id} className={`cd-item ${dl.overdue ? "cd-item-overdue" : "cd-item-amber"}`} style={{ ...styles.itemCard, alignItems: "center" }}>
-                    <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 8 }}>
-                      <h4 className="cd-item-title" style={styles.itemTitle}>{a.title}</h4>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                        <span style={{ ...styles.chip, ...dl.style }}>
-                          {dl.icon} {dl.text}
-                        </span>
-                        {a.maximum_score != null && (
-                          <span style={{ ...styles.chip, ...styles.chipBlue }}>
-                            <Trophy size={12} /> {a.maximum_score} điểm
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <Link
-                      to={`/assignments/${a.id}`}
-                      className={dl.overdue ? "cd-btn-ghost" : "cd-btn-detail"}
-                      style={{ ...styles.detailBtn, ...(dl.overdue ? styles.detailBtnMuted : {}) }}
-                    >
-                      Chi tiết & Nộp bài <ArrowRight size={14} />
-                    </Link>
-                  </div>
-                );
-              })}
+          {memberTotalPages > 1 && (
+            <div style={styles.paginationFooter}>
+              <span style={{ fontSize: 13, color: "#a1a1aa" }}>
+                Hiển thị {members.length} / {memberTotal} học viên
+              </span>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <button
+                  onClick={() => setMemberPage((p) => Math.max(1, p - 1))}
+                  disabled={memberPage <= 1}
+                  className="cd-btn-page"
+                  style={{ ...styles.pageBtn, ...(memberPage <= 1 ? styles.pageBtnDisabled : {}) }}
+                >
+                  <ChevronLeft size={14} /> Trước
+                </button>
+                <span style={{ fontSize: 12, color: "#a1a1aa" }}>
+                  Trang <strong style={{ color: "#f4f4f5" }}>{memberPage}</strong> / {memberTotalPages}
+                </span>
+                <button
+                  onClick={() => setMemberPage((p) => Math.min(memberTotalPages, p + 1))}
+                  disabled={memberPage >= memberTotalPages}
+                  className="cd-btn-page"
+                  style={{ ...styles.pageBtn, ...(memberPage >= memberTotalPages ? styles.pageBtnDisabled : {}) }}
+                >
+                  Sau <ChevronRight size={14} />
+                </button>
+              </div>
             </div>
           )}
         </section>
-      </div>
+      )}
 
       {/* Modal Tạo Bài Học */}
       {showLessonModal && (
@@ -490,6 +888,15 @@ function Modal({ icon, color, title, subtitle, onClose, children }) {
   );
 }
 
+const getInitials = (name) =>
+  (name || "?")
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => w[0])
+    .slice(-2)
+    .join("")
+    .toUpperCase();
+
 const DAY = 24 * 60 * 60 * 1000;
 
 const describeDeadline = (deadline) => {
@@ -512,10 +919,10 @@ const describeDeadline = (deadline) => {
   };
 };
 
-// Hover / focus / responsive / animation không làm được bằng inline style
 const css = `
   .cd-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
   @media (max-width: 900px) { .cd-grid { grid-template-columns: 1fr; } }
+  .cd-tab:hover { color: #f4f4f5 !important; }
   .cd-back:hover { color: #f4f4f5 !important; }
   .cd-back-icon { transition: transform .15s; }
   .cd-back:hover .cd-back-icon { transform: translateX(-2px); }
@@ -535,7 +942,8 @@ const css = `
   .cd-btn-complete:hover:not(:disabled) { color: #34d399 !important; background-color: rgba(16,185,129,0.12) !important; border-color: rgba(16,185,129,0.4) !important; }
   .cd-btn-detail:hover { background-color: rgba(245,158,11,0.2) !important; color: #fde68a !important; }
   .cd-btn-ghost:hover { color: #f4f4f5 !important; background-color: #27272a !important; }
-  .cd-btn-primary:active:not(:disabled), .cd-btn-amber:active:not(:disabled), .cd-btn-complete:active:not(:disabled) { transform: scale(0.97); }
+  .cd-btn-page { transition: background-color .15s, color .15s; }
+  .cd-btn-page:hover:not(:disabled) { background-color: #27272a !important; color: #f4f4f5 !important; }
   .cd-input:focus { border-color: #3b82f6 !important; box-shadow: 0 0 0 1px #3b82f6; }
   .cd-input-amber:focus { border-color: #f59e0b !important; box-shadow: 0 0 0 1px #f59e0b; }
   .cd-input::placeholder { color: #71717a; }
@@ -551,6 +959,7 @@ const css = `
 const styles = {
   page: { fontFamily: "Inter, system-ui, sans-serif", display: "flex", flexDirection: "column", gap: 24 },
   centerText: { textAlign: "center", padding: 60, color: "#a1a1aa", fontSize: 14 },
+  smallCenter: { textAlign: "center", padding: 24, color: "#a1a1aa", fontSize: 12 },
   errorText: { display: "flex", alignItems: "center", gap: 10, color: "#fda4af", padding: 16, backgroundColor: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.25)", borderRadius: 12, fontSize: 14 },
 
   topRow: { display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12 },
@@ -571,6 +980,10 @@ const styles = {
   statPill: { display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 12px", borderRadius: 8, fontSize: 12, backgroundColor: "#202024", border: "1px solid #27272a" },
   dot: { width: 8, height: 8, borderRadius: "50%" },
 
+  tabBar: { display: "flex", gap: 8, padding: 4, backgroundColor: "#141416", border: "1px solid #27272a", borderRadius: 12, alignSelf: "flex-start" },
+  tabBtn: { display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 16px", borderRadius: 8, border: "1px solid transparent", backgroundColor: "transparent", color: "#a1a1aa", fontSize: 13, fontWeight: 500, cursor: "pointer" },
+  tabBtnActive: { backgroundColor: "#27272a", borderColor: "#3f3f46", color: "#60a5fa" },
+
   sectionBox: { display: "flex", flexDirection: "column", gap: 16, backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: 16, padding: 20, boxShadow: "0 10px 30px rgba(0,0,0,0.25)" },
   sectionHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, paddingBottom: 14, borderBottom: "1px solid #27272a" },
   sectionIcon: { width: 32, height: 32, borderRadius: 8, border: "1px solid", display: "flex", alignItems: "center", justifyContent: "center" },
@@ -579,6 +992,12 @@ const styles = {
   countBadge: { padding: "1px 8px", borderRadius: 999, border: "1px solid", fontSize: 11, fontWeight: 600 },
   addBtn: { display: "inline-flex", alignItems: "center", gap: 4, flexShrink: 0, backgroundColor: "#2563eb", color: "#fff", border: "none", padding: "7px 12px", borderRadius: 10, cursor: "pointer", fontWeight: 600, fontSize: 12, boxShadow: "0 4px 12px rgba(37,99,235,0.25)" },
   addBtnAmber: { backgroundColor: "#fbbf24", color: "#000", boxShadow: "0 4px 12px rgba(251,191,36,0.2)" },
+
+  sectionToolbar: { display: "flex", gap: 8, alignItems: "center" },
+  searchWrap: { position: "relative", flex: 1 },
+  searchIcon: { position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#71717a", pointerEvents: "none" },
+  sortIcon: { position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", color: "#71717a", pointerEvents: "none" },
+  clearBtn: { position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "#71717a", cursor: "pointer", display: "flex", alignItems: "center", padding: 2 },
 
   list: { display: "flex", flexDirection: "column", gap: 12 },
   itemCard: { display: "flex", alignItems: "flex-start", gap: 14, padding: 14, borderRadius: 12, backgroundColor: "rgba(32,32,36,0.6)", border: "1px solid #27272a" },
@@ -595,6 +1014,18 @@ const styles = {
   empty: { display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "28px 16px", textAlign: "center", borderRadius: 12, border: "1px dashed #27272a", backgroundColor: "rgba(24,24,27,0.5)" },
   emptyIcon: { width: 40, height: 40, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", color: "#71717a", backgroundColor: "#202024" },
 
+  miniPagination: { display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 10, borderTop: "1px solid #27272a" },
+  pageBtn: { display: "inline-flex", alignItems: "center", padding: "4px 8px", borderRadius: 6, border: "1px solid #27272a", backgroundColor: "#18181b", color: "#f4f4f5", fontSize: 12, cursor: "pointer" },
+  pageBtnDisabled: { opacity: 0.35, cursor: "not-allowed" },
+
+  // Members Grid
+  memberCard: { display: "flex", alignItems: "center", gap: 12, padding: 14, borderRadius: 12, backgroundColor: "#141416", border: "1px solid #27272a" },
+  memberAvatar: { width: 36, height: 36, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", color: "#34d399", backgroundColor: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.3)", fontSize: 12, fontWeight: 600, flexShrink: 0 },
+  memberName: { fontSize: 13, fontWeight: 600, color: "#f4f4f5" },
+  memberEmail: { fontSize: 11, color: "#a1a1aa", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  memberDate: { fontSize: 10, color: "#71717a", marginTop: 4 },
+  paginationFooter: { display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 14, borderTop: "1px solid #27272a" },
+
   modalOverlay: { position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)", display: "flex", justifyContent: "center", alignItems: "center", padding: 16, zIndex: 1000 },
   modalContent: { width: "100%", maxWidth: 520, backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: 16, color: "#f4f4f5", overflow: "hidden", boxShadow: "0 25px 50px rgba(0,0,0,0.7)" },
   modalHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 24px", borderBottom: "1px solid #27272a", backgroundColor: "#1b1b1e" },
@@ -610,7 +1041,7 @@ const styles = {
   label: { fontSize: 12, fontWeight: 600, color: "#f4f4f5" },
   req: { color: "#f43f5e" },
   hint: { fontSize: 11, color: "#71717a" },
-  input: { width: "100%", boxSizing: "border-box", padding: "10px 14px", borderRadius: 10, border: "1px solid #27272a", backgroundColor: "#09090b", color: "#f4f4f5", fontSize: 13, outline: "none", fontFamily: "inherit", transition: "border-color .15s, box-shadow .15s" },
+  input: { width: "100%", boxSizing: "border-box", padding: "8px 12px", borderRadius: 8, border: "1px solid #27272a", backgroundColor: "#09090b", color: "#f4f4f5", fontSize: 13, outline: "none", fontFamily: "inherit" },
   textarea: { resize: "vertical", lineHeight: 1.6, minHeight: 96 },
   inputIcon: { position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#71717a", pointerEvents: "none" },
   saveBtn: { display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 18px", backgroundColor: "#2563eb", color: "#fff", border: "none", borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: "pointer", boxShadow: "0 8px 20px rgba(37,99,235,0.3)" },

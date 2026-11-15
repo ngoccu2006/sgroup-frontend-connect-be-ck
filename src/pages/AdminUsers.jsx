@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { userApi } from "../api/users";
 import { classApi } from "../api/classes";
 import {
   Plus, Trash2, UserPlus, Shield, BadgeCheck, User, Users, GraduationCap, Search, X,
   Mail, KeyRound, Eye, EyeOff, ChevronDown, Check, IdCard, School,
+  ChevronLeft, ChevronRight, ArrowUpDown, RotateCcw,
 } from "lucide-react";
 
 export default function AdminUsers() {
@@ -11,31 +12,116 @@ export default function AdminUsers() {
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Server-side pagination, search, filter
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("ALL");
+  const [sortBy, setSortBy] = useState("created_at");
+  const [sortOrder, setSortOrder] = useState("DESC");
+
+  // Debounce search
+  const [searchTerm, setSearchTerm] = useState("");
+  const debounceRef = useRef(null);
+
   // Modals state
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
-
   const [createUserForm, setCreateUserForm] = useState({ name: "", email: "", password: "", role: "MEMBER" });
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedClassId, setSelectedClassId] = useState("");
-
-  // UI state (chỉ lọc/hiển thị phía client)
-  const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState("ALL");
   const [showPassword, setShowPassword] = useState(false);
 
-  const loadData = () => {
-    Promise.all([
-      userApi.getAll().then(({ data }) => setUsers(data || [])),
-      classApi.getAll().then(({ data }) => setClasses(data || [])),
-    ])
+  // Stats (dùng 1 API call riêng không filter để lấy tổng)
+  const [counts, setCounts] = useState({ ALL: 0, ADMIN: 0, MENTOR: 0, MEMBER: 0 });
+
+  const loadUsers = () => {
+    setLoading(true);
+    userApi.getAll({
+      page,
+      limit,
+      q: search,
+      role: roleFilter !== "ALL" ? roleFilter : "",
+      sortBy,
+      order: sortOrder,
+    })
+      .then(({ data, pagination }) => {
+        setUsers(data || []);
+        setTotal(pagination?.total || pagination?.totalItems || 0);
+        setTotalPages(pagination?.totalPages || 1);
+      })
       .catch((e) => alert(e.message))
       .finally(() => setLoading(false));
   };
 
+  const loadStats = () => {
+    // Lấy tất cả user không filter để đếm stats
+    userApi.getAll({ limit: 1 }).then(({ pagination }) => {
+      const allTotal = pagination?.total || 0;
+      // Đếm từng role
+      Promise.all([
+        userApi.getAll({ role: "ADMIN", limit: 1 }).then(r => r.pagination?.total || 0),
+        userApi.getAll({ role: "MENTOR", limit: 1 }).then(r => r.pagination?.total || 0),
+        userApi.getAll({ role: "MEMBER", limit: 1 }).then(r => r.pagination?.total || 0),
+      ]).then(([adminCount, mentorCount, memberCount]) => {
+        setCounts({ ALL: allTotal, ADMIN: adminCount, MENTOR: mentorCount, MEMBER: memberCount });
+      });
+    }).catch(() => {});
+  };
+
+  const loadClasses = () => {
+    classApi.getAll({ limit: 100 }).then(res => {
+      const items = res.items || res.data || [];
+      setClasses(items);
+    }).catch(() => {});
+  };
+
   useEffect(() => {
-    loadData();
+    loadStats();
+    loadClasses();
   }, []);
+
+  useEffect(() => {
+    loadUsers();
+  }, [page, limit, search, roleFilter, sortBy, sortOrder]);
+
+  const handleSearchChange = (value) => {
+    setSearchTerm(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setSearch(value.trim());
+      setPage(1);
+    }, 300);
+  };
+
+  const handleClearSearch = () => {
+    setSearchTerm("");
+    setSearch("");
+    setPage(1);
+  };
+
+  const handleRoleFilter = (r) => {
+    setRoleFilter(r);
+    setPage(1);
+  };
+
+  const handleSortChange = (e) => {
+    const [newSortBy, newOrder] = e.target.value.split(":");
+    setSortBy(newSortBy);
+    setSortOrder(newOrder);
+    setPage(1);
+  };
+
+  const handleResetFilters = () => {
+    setSearchTerm("");
+    setSearch("");
+    setRoleFilter("ALL");
+    setSortBy("created_at");
+    setSortOrder("DESC");
+    setPage(1);
+  };
 
   const handleCreateUser = async (e) => {
     e.preventDefault();
@@ -44,7 +130,8 @@ export default function AdminUsers() {
       alert("Tạo người dùng thành công!");
       setShowCreateModal(false);
       setCreateUserForm({ name: "", email: "", password: "", role: "MEMBER" });
-      loadData();
+      loadUsers();
+      loadStats();
     } catch (err) {
       alert(err.message || "Tạo thất bại");
     }
@@ -55,7 +142,8 @@ export default function AdminUsers() {
     try {
       await userApi.remove(id);
       alert("Đã xóa người dùng!");
-      loadData();
+      loadUsers();
+      loadStats();
     } catch (err) {
       alert(err.message || "Xóa thất bại");
     }
@@ -73,29 +161,7 @@ export default function AdminUsers() {
     }
   };
 
-  if (loading) {
-    return (
-      <div style={styles.center}>
-        <style>{css}</style>
-        <div className="au-spinner" />
-        Đang tải danh sách người dùng...
-      </div>
-    );
-  }
-
-  const counts = {
-    ALL: users.length,
-    ADMIN: users.filter((u) => u.role === "ADMIN").length,
-    MENTOR: users.filter((u) => u.role === "MENTOR").length,
-    MEMBER: users.filter((u) => u.role === "MEMBER").length,
-  };
-
-  const keyword = search.trim().toLowerCase();
-  const visibleUsers = users.filter((u) => {
-    if (roleFilter !== "ALL" && u.role !== roleFilter) return false;
-    if (!keyword) return true;
-    return displayName(u).toLowerCase().includes(keyword) || (u.email || "").toLowerCase().includes(keyword);
-  });
+  const hasActiveFilters = Boolean(search || roleFilter !== "ALL" || sortBy !== "created_at" || sortOrder !== "DESC");
 
   const statCards = [
     { label: "Tổng người dùng", value: counts.ALL, icon: Users, color: "#60a5fa" },
@@ -149,7 +215,7 @@ export default function AdminUsers() {
         })}
       </div>
 
-      {/* Toolbar: lọc vai trò + tìm kiếm */}
+      {/* Toolbar: lọc vai trò + tìm kiếm + sắp xếp */}
       <div style={styles.toolbar}>
         <div style={styles.tabs}>
           {["ALL", "ADMIN", "MENTOR", "MEMBER"].map((r) => {
@@ -157,25 +223,57 @@ export default function AdminUsers() {
             return (
               <button
                 key={r}
-                onClick={() => setRoleFilter(r)}
+                onClick={() => handleRoleFilter(r)}
                 className="au-tab"
                 style={{ ...styles.tab, ...(active ? styles.tabActive : {}) }}
               >
-                {r !== "ALL" && <span style={{ ...styles.dot, backgroundColor: ROLE_THEME[r].color }} />}
+                {r !== "ALL" && <span style={{ ...styles.dot, backgroundColor: ROLE_THEME[r]?.color || "#a1a1aa" }} />}
                 {r === "ALL" ? "Tất cả" : r} ({counts[r]})
               </button>
             );
           })}
         </div>
-        <div style={styles.searchWrap}>
-          <Search size={16} style={styles.searchIcon} />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Tìm theo tên hoặc email..."
-            className="au-input"
-            style={{ ...styles.input, ...styles.searchInput }}
-          />
+
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          {/* Search */}
+          <div style={styles.searchWrap}>
+            <Search size={16} style={styles.searchIcon} />
+            <input
+              value={searchTerm}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder="Tìm theo tên hoặc email..."
+              className="au-input"
+              style={{ ...styles.input, ...styles.searchInput }}
+            />
+            {searchTerm && (
+              <button type="button" onClick={handleClearSearch} style={styles.clearBtn} title="Xóa tìm kiếm">
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          {/* Sorting */}
+          <div style={{ position: "relative" }}>
+            <ArrowUpDown size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#71717a", pointerEvents: "none" }} />
+            <select
+              value={`${sortBy}:${sortOrder}`}
+              onChange={handleSortChange}
+              className="au-input"
+              style={{ ...styles.input, height: 38, paddingLeft: 32, paddingRight: 12, width: 200, backgroundColor: "#0f0f12", cursor: "pointer", appearance: "none" }}
+            >
+              <option value="created_at:DESC">Mới nhất</option>
+              <option value="created_at:ASC">Cũ nhất</option>
+              <option value="full_name:ASC">Tên: A → Z</option>
+              <option value="full_name:DESC">Tên: Z → A</option>
+              <option value="email:ASC">Email: A → Z</option>
+            </select>
+          </div>
+
+          {hasActiveFilters && (
+            <button onClick={handleResetFilters} className="au-btn-ghost" style={styles.resetBtn}>
+              <RotateCcw size={13} /> Xóa bộ lọc
+            </button>
+          )}
         </div>
       </div>
 
@@ -193,64 +291,97 @@ export default function AdminUsers() {
               </tr>
             </thead>
             <tbody>
-              {visibleUsers.map((u) => {
-                const theme = ROLE_THEME[u.role] || ROLE_THEME.MEMBER;
-                const RoleIcon = theme.icon;
-                return (
-                  <tr key={u.id} className="au-row" style={styles.tr}>
-                    <td style={{ ...styles.td, paddingLeft: 24 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <div style={{ ...styles.avatar, color: theme.color, backgroundColor: theme.bg, borderColor: theme.border }}>
-                          {getInitials(displayName(u))}
-                        </div>
-                        <span className="au-name" style={styles.name}>{displayName(u)}</span>
-                      </div>
-                    </td>
-                    <td style={{ ...styles.td, color: "#a1a1aa" }}>{u.email}</td>
-                    <td style={styles.td}>
-                      <span style={{ ...styles.badge, color: theme.color, backgroundColor: theme.bg, borderColor: theme.border }}>
-                        <RoleIcon size={12} /> {u.role}
-                      </span>
-                    </td>
-                    <td style={{ ...styles.td, color: "#a1a1aa" }}>{formatDate(u.created_at)}</td>
-                    <td style={{ ...styles.td, paddingRight: 24 }}>
-                      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", alignItems: "center" }}>
-                        {u.role === "MEMBER" && (
-                          <button
-                            onClick={() => { setSelectedUser(u); setShowAssignModal(true); }}
-                            className="au-btn-assign"
-                            style={styles.assignBtn}
-                          >
-                            <UserPlus size={14} /> Thêm vào Lớp
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleDeleteUser(u.id)}
-                          className="au-btn-delete"
-                          style={styles.deleteBtn}
-                          title="Xóa người dùng"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-              {visibleUsers.length === 0 && (
+              {loading ? (
+                <tr>
+                  <td colSpan={5} style={styles.empty}>
+                    <div className="au-spinner" />
+                    <div>Đang tải...</div>
+                  </td>
+                </tr>
+              ) : users.length === 0 ? (
                 <tr>
                   <td colSpan={5} style={styles.empty}>
                     <Users size={28} style={{ opacity: 0.5, marginBottom: 8 }} />
                     <div>Không tìm thấy người dùng nào</div>
                   </td>
                 </tr>
+              ) : (
+                users.map((u) => {
+                  const theme = ROLE_THEME[u.role] || ROLE_THEME.MEMBER;
+                  const RoleIcon = theme.icon;
+                  return (
+                    <tr key={u.id} className="au-row" style={styles.tr}>
+                      <td style={{ ...styles.td, paddingLeft: 24 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                          <div style={{ ...styles.avatar, color: theme.color, backgroundColor: theme.bg, borderColor: theme.border }}>
+                            {getInitials(displayName(u))}
+                          </div>
+                          <span className="au-name" style={styles.name}>{displayName(u)}</span>
+                        </div>
+                      </td>
+                      <td style={{ ...styles.td, color: "#a1a1aa" }}>{u.email}</td>
+                      <td style={styles.td}>
+                        <span style={{ ...styles.badge, color: theme.color, backgroundColor: theme.bg, borderColor: theme.border }}>
+                          <RoleIcon size={12} /> {u.role}
+                        </span>
+                      </td>
+                      <td style={{ ...styles.td, color: "#a1a1aa" }}>{formatDate(u.created_at)}</td>
+                      <td style={{ ...styles.td, paddingRight: 24 }}>
+                        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", alignItems: "center" }}>
+                          {u.role === "MEMBER" && (
+                            <button
+                              onClick={() => { setSelectedUser(u); setShowAssignModal(true); }}
+                              className="au-btn-assign"
+                              style={styles.assignBtn}
+                            >
+                              <UserPlus size={14} /> Thêm vào Lớp
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDeleteUser(u.id)}
+                            className="au-btn-delete"
+                            style={styles.deleteBtn}
+                            title="Xóa người dùng"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Footer */}
         <div style={styles.tableFooter}>
-          Hiển thị <strong style={{ color: "#f4f4f5" }}>{visibleUsers.length}</strong> trong số{" "}
-          <strong style={{ color: "#f4f4f5" }}>{users.length}</strong> người dùng
+          <span>
+            Hiển thị <strong style={{ color: "#f4f4f5" }}>{users.length}</strong> trong số{" "}
+            <strong style={{ color: "#f4f4f5" }}>{total}</strong> người dùng
+          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="au-btn-page"
+              style={{ ...styles.pageBtn, ...(page <= 1 ? styles.pageBtnDisabled : {}) }}
+            >
+              <ChevronLeft size={16} /> Trước
+            </button>
+            <span style={{ fontSize: 13, color: "#a1a1aa" }}>
+              Trang <span style={{ color: "#f4f4f5", fontWeight: 700 }}>{page}</span> / {Math.max(1, totalPages)}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="au-btn-page"
+              style={{ ...styles.pageBtn, ...(page >= totalPages ? styles.pageBtnDisabled : {}) }}
+            >
+              Sau <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -407,7 +538,6 @@ function Field({ label, icon: Icon, children }) {
   );
 }
 
-// API hiện trả về `full_name`, form cũ dùng `name` -> hiển thị cả hai
 const displayName = (u) => u?.full_name || u?.name || "—";
 
 const getInitials = (name) =>
@@ -429,7 +559,6 @@ const ROLE_THEME = {
 
 const ROLE_AVATAR_MEMBER = { color: ROLE_THEME.MEMBER.color, backgroundColor: ROLE_THEME.MEMBER.bg, borderColor: ROLE_THEME.MEMBER.border };
 
-// Hover / focus / animation không làm được bằng inline style
 const css = `
   .au-card { transition: border-color .15s, transform .15s; }
   .au-card:hover { border-color: #3f3f46 !important; transform: translateY(-1px); }
@@ -446,6 +575,8 @@ const css = `
   .au-btn-assign:hover { background-color: rgba(16,185,129,0.22) !important; }
   .au-btn-delete:hover { color: #f87171 !important; background-color: rgba(239,68,68,0.12) !important; }
   .au-btn-ghost:hover { color: #f4f4f5 !important; background-color: #27272a !important; }
+  .au-btn-page { transition: background-color .15s, color .15s, border-color .15s; }
+  .au-btn-page:hover:not(:disabled) { background-color: #27272a !important; border-color: #3f3f46 !important; color: #f4f4f5 !important; }
   .au-modal { animation: au-pop .18s ease-out; }
   @keyframes au-pop { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
   .au-spinner { width: 28px; height: 28px; margin: 0 auto 12px; border: 3px solid #27272a; border-top-color: #3b82f6; border-radius: 50%; animation: au-spin .8s linear infinite; }
@@ -479,7 +610,9 @@ const styles = {
   dot: { width: 8, height: 8, borderRadius: "50%" },
   searchWrap: { position: "relative", flex: "1 1 260px", maxWidth: 320 },
   searchIcon: { position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#71717a", pointerEvents: "none" },
-  searchInput: { height: 38, paddingLeft: 36, backgroundColor: "#0f0f12" },
+  searchInput: { height: 38, paddingLeft: 36, paddingRight: 34, backgroundColor: "#0f0f12" },
+  clearBtn: { position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "#71717a", cursor: "pointer", display: "flex", alignItems: "center", padding: 4, borderRadius: 4 },
+  resetBtn: { display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 8, fontSize: 12, color: "#a1a1aa", border: "1px solid #27272a", backgroundColor: "transparent", cursor: "pointer" },
 
   tableWrapper: { marginTop: 16, backgroundColor: "#18181b", borderRadius: 12, border: "1px solid #27272a", overflow: "hidden" },
   table: { width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: 13 },
@@ -493,7 +626,9 @@ const styles = {
   assignBtn: { display: "inline-flex", alignItems: "center", gap: 5, backgroundColor: "rgba(16,185,129,0.12)", color: "#34d399", border: "1px solid rgba(52,211,153,0.3)", padding: "5px 10px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 500 },
   deleteBtn: { display: "inline-flex", alignItems: "center", backgroundColor: "transparent", color: "#71717a", border: "none", padding: 6, borderRadius: 8, cursor: "pointer" },
   empty: { padding: 48, textAlign: "center", color: "#71717a" },
-  tableFooter: { padding: "12px 24px", borderTop: "1px solid #27272a", backgroundColor: "#141417", color: "#a1a1aa", fontSize: 12 },
+  tableFooter: { display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "12px 24px", borderTop: "1px solid #27272a", backgroundColor: "#141417", color: "#a1a1aa", fontSize: 12 },
+  pageBtn: { display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 8, border: "1px solid #27272a", backgroundColor: "#18181b", color: "#f4f4f5", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" },
+  pageBtnDisabled: { opacity: 0.35, cursor: "not-allowed" },
 
   modalOverlay: { position: "fixed", inset: 0, backgroundColor: "rgba(9,9,11,0.8)", backdropFilter: "blur(4px)", display: "flex", justifyContent: "center", alignItems: "center", padding: 16, zIndex: 1000 },
   modalContent: { backgroundColor: "#18181b", border: "1px solid #3f3f46", borderRadius: 16, width: "100%", maxWidth: 480, color: "#f4f4f5", overflow: "hidden", boxShadow: "0 25px 50px rgba(0,0,0,0.6)" },

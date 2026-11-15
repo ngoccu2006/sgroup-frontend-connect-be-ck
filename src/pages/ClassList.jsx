@@ -1,14 +1,40 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState, useRef, useTransition } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { classApi } from "../api/classes";
 import { getUser } from "../api/client";
-import { Calendar, ArrowRight, Plus, X, School, Search, BookmarkPlus, Check, FolderOpen, TriangleAlert } from "lucide-react";
+import {
+  Calendar, ArrowRight, Plus, X, School, Search, BookmarkPlus, Check, FolderOpen,
+  TriangleAlert, ChevronLeft, ChevronRight, ArrowUpDown, Filter, RotateCcw
+} from "lucide-react";
 
 export default function ClassList() {
   const user = getUser();
   const isMentorOrAdmin = ["MENTOR", "ADMIN"].includes(user?.role);
 
+  // Đồng bộ trạng thái trên URL
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Đọc params từ URL (với giá trị mặc định)
+  const urlPage = parseInt(searchParams.get("page") || "1", 10);
+  const page = isNaN(urlPage) || urlPage < 1 ? 1 : urlPage;
+
+  const urlLimit = parseInt(searchParams.get("limit") || "9", 10);
+  const limit = isNaN(urlLimit) || urlLimit < 1 ? 9 : urlLimit;
+
+  const q = searchParams.get("q") || "";
+  const sortBy = searchParams.get("sortBy") || "created_at";
+  const order = (searchParams.get("order") || "desc").toLowerCase();
+  const fromDate = searchParams.get("fromDate") || "";
+  const toDate = searchParams.get("toDate") || "";
+
+  // Local state cho search input để xử lý debounce 300ms mượt mà
+  const [searchTerm, setSearchTerm] = useState(q);
+  const debounceTimerRef = useRef(null);
+
+  // Dữ liệu API
   const [classes, setClasses] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -17,19 +43,102 @@ export default function ClassList() {
   const [form, setForm] = useState({ name: "", description: "" });
   const [submitting, setSubmitting] = useState(false);
 
-  // UI state (lọc phía client)
-  const [search, setSearch] = useState("");
+  // Cập nhật URL params
+  const updateParams = (newParams) => {
+    const next = new URLSearchParams(searchParams);
+    Object.entries(newParams).forEach(([k, v]) => {
+      if (v === undefined || v === null || v === "") {
+        next.delete(k);
+      } else {
+        next.set(k, String(v));
+      }
+    });
+    setSearchParams(next);
+  };
 
+  // Đồng bộ search input khi URL q thay đổi từ bên ngoài (e.g. back/forward navigation)
+  useEffect(() => {
+    setSearchTerm(q);
+  }, [q]);
+
+  // Debounce search 300ms
+  const handleSearchChange = (value) => {
+    setSearchTerm(value);
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      updateParams({ q: value.trim() || "", page: 1 });
+    }, 300);
+  };
+
+  // Nút xóa nhanh ô tìm kiếm
+  const handleClearSearch = () => {
+    setSearchTerm("");
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    updateParams({ q: "", page: 1 });
+  };
+
+  // Thay đổi Sort
+  const handleSortChange = (e) => {
+    const val = e.target.value;
+    const [newSortBy, newOrder] = val.split(":");
+    updateParams({ sortBy: newSortBy, order: newOrder, page: 1 });
+  };
+
+  // Thay đổi Limit (số dòng mỗi trang)
+  const handleLimitChange = (e) => {
+    const newLimit = parseInt(e.target.value, 10);
+    updateParams({ limit: newLimit, page: 1 });
+  };
+
+  // Thay đổi khoảng ngày
+  const handleFromDateChange = (e) => {
+    updateParams({ fromDate: e.target.value, page: 1 });
+  };
+
+  const handleToDateChange = (e) => {
+    updateParams({ toDate: e.target.value, page: 1 });
+  };
+
+  // Reset tất cả bộ lọc
+  const handleResetFilters = () => {
+    setSearchTerm("");
+    setSearchParams(new URLSearchParams({ page: "1", limit: String(limit) }));
+  };
+
+  // Tải dữ liệu từ Server (server-side filtering, sorting, pagination)
   const loadClasses = () => {
-    classApi.getAll()
-      .then(({ data }) => setClasses(data || []))
+    setLoading(true);
+    setError("");
+    classApi.getAll({
+      page,
+      limit,
+      q,
+      sortBy,
+      order,
+      fromDate,
+      toDate,
+    })
+      .then((res) => {
+        const items = res.items || res.data || [];
+        const tot = res.total ?? res.pagination?.totalItems ?? items.length;
+        const totPages = res.totalPages ?? res.pagination?.totalPages ?? 1;
+
+        setClasses(items);
+        setTotal(tot);
+        setTotalPages(totPages);
+      })
       .catch((e) => setError(e.message || "Lỗi tải danh sách lớp học"))
       .finally(() => setLoading(false));
   };
 
+  // Tải lại dữ liệu mỗi khi params trên URL thay đổi
   useEffect(() => {
     loadClasses();
-  }, []);
+  }, [page, limit, q, sortBy, order, fromDate, toDate]);
 
   const handleCreateClass = async (e) => {
     e.preventDefault();
@@ -39,7 +148,8 @@ export default function ClassList() {
       alert("Tạo lớp học mới thành công!");
       setShowModal(false);
       setForm({ name: "", description: "" });
-      loadClasses(); // Reload lại danh sách
+      updateParams({ page: 1 });
+      loadClasses();
     } catch (err) {
       alert(err.message || "Tạo lớp học thất bại");
     } finally {
@@ -47,27 +157,7 @@ export default function ClassList() {
     }
   };
 
-  if (loading) {
-    return (
-      <div style={styles.centerText}>
-        <style>{css}</style>
-        <div className="cl-spinner" />
-        Đang tải danh sách lớp học...
-      </div>
-    );
-  }
-  if (error) {
-    return (
-      <div style={styles.errorText}>
-        <TriangleAlert size={18} style={{ flexShrink: 0 }} /> {error}
-      </div>
-    );
-  }
-
-  const keyword = search.trim().toLowerCase();
-  const visibleClasses = classes.filter((c) =>
-    !keyword || className(c).toLowerCase().includes(keyword) || (c.description || "").toLowerCase().includes(keyword)
-  );
+  const hasActiveFilters = Boolean(q || fromDate || toDate || sortBy !== "created_at" || order !== "desc");
 
   return (
     <div style={styles.page}>
@@ -80,7 +170,7 @@ export default function ClassList() {
           <div>
             <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
               <h2 style={styles.title}>Lớp học của bạn</h2>
-              <span style={styles.countBadge}>{classes.length} lớp</span>
+              <span style={styles.countBadge}>{total} lớp</span>
             </div>
             <p style={styles.subtitle}>Chọn một lớp để xem bài học, bài tập và tiến độ</p>
           </div>
@@ -93,68 +183,216 @@ export default function ClassList() {
         )}
       </div>
 
-      {/* Toolbar */}
-      <div style={styles.toolbar}>
-        <div style={styles.searchWrap}>
-          <Search size={16} style={styles.searchIcon} />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Tìm lớp học theo tên..."
-            className="cl-input"
-            style={{ ...styles.input, height: 38, paddingLeft: 36, backgroundColor: "#18181b" }}
-          />
+      {/* Toolbar: Tìm kiếm, Bộ lọc khoảng ngày, Sắp xếp, Phân trang */}
+      <div style={styles.controlPanel}>
+        <div style={styles.toolbarRow}>
+          {/* Ô Tìm kiếm với Debounce 300ms và nút Clear X */}
+          <div style={styles.searchWrap}>
+            <Search size={16} style={styles.searchIcon} />
+            <input
+              value={searchTerm}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder="Tìm theo tên hoặc mô tả lớp..."
+              className="cl-input"
+              style={{ ...styles.input, height: 38, paddingLeft: 36, paddingRight: searchTerm ? 34 : 12, backgroundColor: "#18181b" }}
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={handleClearSearch}
+                style={styles.clearSearchBtn}
+                title="Xóa tìm kiếm"
+              >
+                <X size={15} />
+              </button>
+            )}
+          </div>
+
+          {/* Sắp xếp (Sorting Whitelist) */}
+          <div style={styles.sortWrap}>
+            <ArrowUpDown size={15} style={styles.selectIcon} />
+            <select
+              value={`${sortBy}:${order}`}
+              onChange={handleSortChange}
+              className="cl-input cl-select"
+              style={{ ...styles.input, height: 38, paddingLeft: 34, paddingRight: 28, backgroundColor: "#18181b", cursor: "pointer" }}
+            >
+              <option value="created_at:desc">Mới nhất (Ngày tạo giảm dần)</option>
+              <option value="created_at:asc">Cũ nhất (Ngày tạo tăng dần)</option>
+              <option value="name:asc">Tên lớp: A → Z</option>
+              <option value="name:desc">Tên lớp: Z → A</option>
+              <option value="start_date:asc">Ngày bắt đầu sớm nhất</option>
+              <option value="start_date:desc">Ngày bắt đầu muộn nhất</option>
+            </select>
+          </div>
+
+          {/* Chọn số dòng/lớp mỗi trang (Limit) */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 13, color: "#a1a1aa", whiteSpace: "nowrap" }}>Hiển thị:</span>
+            <select
+              value={limit}
+              onChange={handleLimitChange}
+              className="cl-input cl-select"
+              style={{ ...styles.input, height: 38, width: 80, padding: "0 10px", backgroundColor: "#18181b", cursor: "pointer" }}
+            >
+              <option value={6}>6</option>
+              <option value={9}>9</option>
+              <option value={12}>12</option>
+              <option value={18}>18</option>
+            </select>
+          </div>
         </div>
-        <span style={styles.metaCount}>
-          <span style={styles.dot} /> Hiển thị {visibleClasses.length} lớp học
-        </span>
+
+        {/* Hàng lọc khoảng ngày (Filtering) */}
+        <div style={styles.filterRow}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", flex: 1 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#a1a1aa", fontSize: 13 }}>
+              <Filter size={15} style={{ color: "#60a5fa" }} />
+              <span>Khoảng ngày bắt đầu:</span>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={handleFromDateChange}
+                title="Từ ngày"
+                className="cl-input"
+                style={{ ...styles.input, height: 34, width: 140, backgroundColor: "#18181b", colorScheme: "dark" }}
+              />
+              <span style={{ color: "#71717a", fontSize: 13 }}>đến</span>
+              <input
+                type="date"
+                value={toDate}
+                onChange={handleToDateChange}
+                title="Đến ngày"
+                className="cl-input"
+                style={{ ...styles.input, height: 34, width: 140, backgroundColor: "#18181b", colorScheme: "dark" }}
+              />
+            </div>
+
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="cl-btn-ghost"
+                style={styles.resetBtn}
+                title="Đặt lại tất cả bộ lọc"
+              >
+                <RotateCcw size={13} /> Xóa bộ lọc
+              </button>
+            )}
+          </div>
+
+          <span style={styles.metaCount}>
+            <span style={styles.dot} /> Hiển thị {classes.length} / {total} lớp học
+          </span>
+        </div>
       </div>
 
-      {visibleClasses.length === 0 ? (
-        <div style={styles.empty}>
-          <div style={styles.emptyIcon}><FolderOpen size={22} /></div>
-          <div style={{ fontWeight: 500, color: "#e4e4e7" }}>
-            {classes.length === 0 ? "Bạn chưa tham gia hoặc chưa có lớp học nào." : "Không tìm thấy lớp học phù hợp."}
-          </div>
-          {classes.length > 0 && <div style={{ fontSize: 12 }}>Thử tìm với từ khóa khác.</div>}
-        </div>
-      ) : (
-        <div style={styles.grid}>
-          {visibleClasses.map((c) => {
-            const name = className(c);
-            const hue = hashHue(name);
-            return (
-              <Link key={c.id} to={`/classes/${c.id}`} className="cl-card" style={styles.card}>
-                <div style={{ ...styles.banner, background: `linear-gradient(90deg, hsl(${hue} 80% 55%), hsl(${(hue + 40) % 360} 75% 55%))` }} />
-                <div style={styles.cardBody}>
-                  <div
-                    style={{
-                      ...styles.initials,
-                      color: `hsl(${hue} 85% 70%)`,
-                      backgroundColor: `hsl(${hue} 80% 55% / 0.12)`,
-                      borderColor: `hsl(${hue} 80% 55% / 0.35)`,
-                    }}
-                  >
-                    {getInitials(name)}
-                  </div>
-                  <h3 className="cl-card-title cl-clamp-2" style={styles.cardTitle}>{name}</h3>
-                  <p className="cl-clamp-3" style={styles.cardDesc}>{c.description || "Chưa có mô tả cho lớp học này."}</p>
-                </div>
-                <div style={styles.cardFooter}>
-                  <span style={styles.dateInfo}>
-                    <Calendar size={14} /> Bắt đầu: {c.created_at ? new Date(c.created_at).toLocaleDateString("vi-VN") : "N/A"}
-                  </span>
-                  <span className="cl-detail" style={styles.detailLink}>
-                    Xem chi tiết <ArrowRight size={14} />
-                  </span>
-                </div>
-              </Link>
-            );
-          })}
+      {/* Trạng thái Lỗi */}
+      {error && (
+        <div style={styles.errorText}>
+          <TriangleAlert size={18} style={{ flexShrink: 0 }} /> {error}
         </div>
       )}
 
-      {/* Modal Tạo Lớp Học */}
+      {/* Trạng thái Loading */}
+      {loading ? (
+        <div style={styles.centerText}>
+          <div className="cl-spinner" />
+          Đang tải dữ liệu lớp học...
+        </div>
+      ) : classes.length === 0 ? (
+        /* Trạng thái Rỗng */
+        <div style={styles.empty}>
+          <div style={styles.emptyIcon}><FolderOpen size={24} /></div>
+          <div style={{ fontWeight: 600, color: "#f4f4f5", fontSize: 15 }}>
+            Không tìm thấy kết quả phù hợp
+          </div>
+          <div style={{ fontSize: 13, color: "#a1a1aa" }}>
+            {hasActiveFilters
+              ? "Hãy thử thay đổi từ khóa tìm kiếm hoặc điều chỉnh khoảng ngày lọc."
+              : "Hiện tại chưa có lớp học nào trong hệ thống."}
+          </div>
+          {hasActiveFilters && (
+            <button
+              onClick={handleResetFilters}
+              className="cl-btn-primary"
+              style={{ ...styles.createBtn, marginTop: 12, padding: "8px 16px" }}
+            >
+              <RotateCcw size={14} /> Xóa bộ lọc và xem tất cả
+            </button>
+          )}
+        </div>
+      ) : (
+        /* Danh sách Grid Lớp học */
+        <>
+          <div style={styles.grid}>
+            {classes.map((c) => {
+              const name = className(c);
+              const hue = hashHue(name);
+              return (
+                <Link key={c.id} to={`/classes/${c.id}`} className="cl-card" style={styles.card}>
+                  <div style={{ ...styles.banner, background: `linear-gradient(90deg, hsl(${hue} 80% 55%), hsl(${(hue + 40) % 360} 75% 55%))` }} />
+                  <div style={styles.cardBody}>
+                    <div
+                      style={{
+                        ...styles.initials,
+                        color: `hsl(${hue} 85% 70%)`,
+                        backgroundColor: `hsl(${hue} 80% 55% / 0.12)`,
+                        borderColor: `hsl(${hue} 80% 55% / 0.35)`,
+                      }}
+                    >
+                      {getInitials(name)}
+                    </div>
+                    <h3 className="cl-card-title cl-clamp-2" style={styles.cardTitle}>{name}</h3>
+                    <p className="cl-clamp-3" style={styles.cardDesc}>{c.description || "Chưa có mô tả cho lớp học này."}</p>
+                  </div>
+                  <div style={styles.cardFooter}>
+                    <span style={styles.dateInfo}>
+                      <Calendar size={14} /> Bắt đầu: {c.start_date ? new Date(c.start_date).toLocaleDateString("vi-VN") : c.created_at ? new Date(c.created_at).toLocaleDateString("vi-VN") : "N/A"}
+                    </span>
+                    <span className="cl-detail" style={styles.detailLink}>
+                      Xem chi tiết <ArrowRight size={14} />
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Pagination UI: Trước / Sau, số trang hiện tại, chọn trang */}
+          <div style={styles.paginationWrap}>
+            <button
+              onClick={() => updateParams({ page: Math.max(1, page - 1) })}
+              disabled={page <= 1}
+              className="cl-btn-page"
+              style={{ ...styles.pageBtn, ...(page <= 1 ? styles.pageBtnDisabled : {}) }}
+              title="Trang trước"
+            >
+              <ChevronLeft size={16} /> Trước
+            </button>
+
+            <span style={styles.pageInfo}>
+              Trang <span style={{ color: "#f4f4f5", fontWeight: 700 }}>{page}</span> / {Math.max(1, totalPages)}
+              <span style={{ color: "#71717a", marginLeft: 8 }}>({total} kết quả)</span>
+            </span>
+
+            <button
+              onClick={() => updateParams({ page: Math.min(totalPages, page + 1) })}
+              disabled={page >= totalPages}
+              className="cl-btn-page"
+              style={{ ...styles.pageBtn, ...(page >= totalPages ? styles.pageBtnDisabled : {}) }}
+              title="Trang sau"
+            >
+              Sau <ChevronRight size={16} />
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* Modal Tạo Lớp Học Mới */}
       {showModal && (
         <div style={styles.modalOverlay} onClick={() => setShowModal(false)}>
           <div className="cl-modal" style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
@@ -210,7 +448,6 @@ export default function ClassList() {
   );
 }
 
-// API (bảng classes) trả `name`, form cũ dùng `title` -> hiển thị cả hai
 const className = (c) => c.title || c.name || "Lớp học chưa đặt tên";
 
 const getInitials = (name) =>
@@ -222,14 +459,12 @@ const getInitials = (name) =>
     .join("")
     .toUpperCase() || "LH";
 
-// Màu banner ổn định theo tên lớp
 const hashHue = (str) => {
   let h = 0;
   for (const ch of str) h = (h * 31 + ch.codePointAt(0)) % 360;
   return h;
 };
 
-// Hover / focus / animation không làm được bằng inline style
 const css = `
   .cl-card { transition: transform .2s, border-color .2s, box-shadow .2s; }
   .cl-card:hover { transform: translateY(-2px); border-color: #3f3f46 !important; box-shadow: 0 16px 32px rgba(0,0,0,0.4); }
@@ -243,19 +478,23 @@ const css = `
   .cl-btn-primary:hover:not(:disabled) { background-color: #3b82f6 !important; }
   .cl-btn-primary:active:not(:disabled) { transform: scale(0.98); }
   .cl-btn-ghost:hover { color: #f4f4f5 !important; background-color: #27272a !important; }
+  .cl-btn-page { transition: background-color .15s, color .15s, border-color .15s; }
+  .cl-btn-page:hover:not(:disabled) { background-color: #27272a !important; border-color: #3f3f46 !important; color: #f4f4f5 !important; }
+  .cl-btn-page:active:not(:disabled) { transform: scale(0.97); }
   .cl-input:focus { border-color: #3b82f6 !important; box-shadow: 0 0 0 1px #3b82f6; }
   .cl-input::placeholder { color: #71717a; }
+  .cl-select { appearance: none; }
   .cl-modal { animation: cl-pop .18s ease-out; }
   @keyframes cl-pop { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
   .cl-spinner { width: 28px; height: 28px; margin: 0 auto 12px; border: 3px solid #27272a; border-top-color: #3b82f6; border-radius: 50%; animation: cl-spin .8s linear infinite; }
   .cl-spinner-sm { width: 14px; height: 14px; margin: 0; border-width: 2px; border-color: rgba(255,255,255,0.3); border-top-color: #fff; }
-  @keyframes cl-spin { to { transform: rotate(360deg); } }
+  @keyframes cl-spin { to { rotate: 360deg; } }
 `;
 
 const styles = {
   page: { fontFamily: "Inter, system-ui, sans-serif" },
   centerText: { textAlign: "center", padding: 60, color: "#a1a1aa", fontSize: 14 },
-  errorText: { display: "flex", alignItems: "center", gap: 10, color: "#fda4af", padding: 16, backgroundColor: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.25)", borderRadius: 12, fontSize: 14 },
+  errorText: { display: "flex", alignItems: "center", gap: 10, color: "#fda4af", padding: 14, marginBottom: 20, backgroundColor: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.25)", borderRadius: 12, fontSize: 13 },
 
   pageHeader: { display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 16, paddingBottom: 24, borderBottom: "1px solid #27272a" },
   headerIcon: { width: 48, height: 48, flexShrink: 0, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", color: "#60a5fa", background: "linear-gradient(135deg, rgba(59,130,246,0.3), #27272a)", border: "1px solid rgba(59,130,246,0.3)", boxShadow: "0 8px 20px rgba(59,130,246,0.1)" },
@@ -264,9 +503,15 @@ const styles = {
   subtitle: { margin: "4px 0 0", color: "#a1a1aa", fontSize: 13 },
   createBtn: { display: "inline-flex", alignItems: "center", gap: 6, backgroundColor: "#2563eb", color: "#fff", border: "none", padding: "10px 16px", borderRadius: 10, cursor: "pointer", fontWeight: 600, fontSize: 13, boxShadow: "0 8px 20px rgba(37,99,235,0.25)" },
 
-  toolbar: { display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12, margin: "24px 0" },
-  searchWrap: { position: "relative", flex: "1 1 260px", maxWidth: 340 },
+  controlPanel: { display: "flex", flexDirection: "column", gap: 14, margin: "24px 0", padding: 16, borderRadius: 14, backgroundColor: "#141416", border: "1px solid #27272a" },
+  toolbarRow: { display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12 },
+  searchWrap: { position: "relative", flex: "1 1 280px", maxWidth: 420 },
   searchIcon: { position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#71717a", pointerEvents: "none" },
+  clearSearchBtn: { position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "#71717a", cursor: "pointer", display: "flex", alignItems: "center", padding: 4, borderRadius: 4 },
+  sortWrap: { position: "relative", flex: "1 1 220px", maxWidth: 300 },
+  selectIcon: { position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#71717a", pointerEvents: "none" },
+  filterRow: { display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12, paddingTop: 12, borderTop: "1px solid #1f1f23" },
+  resetBtn: { display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 8, fontSize: 12, color: "#a1a1aa", border: "1px solid #27272a", backgroundColor: "transparent", cursor: "pointer" },
   metaCount: { display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "#a1a1aa" },
   dot: { width: 6, height: 6, borderRadius: "50%", backgroundColor: "#3b82f6" },
 
@@ -282,7 +527,12 @@ const styles = {
   detailLink: { display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 500, color: "#60a5fa" },
 
   empty: { display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "48px 16px", textAlign: "center", color: "#a1a1aa", fontSize: 13, borderRadius: 12, border: "2px dashed rgba(63,63,70,0.6)", backgroundColor: "rgba(24,24,27,0.3)" },
-  emptyIcon: { width: 48, height: 48, marginBottom: 4, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", color: "#71717a", backgroundColor: "#1f1f22", border: "1px solid #27272a" },
+  emptyIcon: { width: 52, height: 52, marginBottom: 4, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", color: "#60a5fa", backgroundColor: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.25)" },
+
+  paginationWrap: { display: "flex", justifyContent: "center", alignItems: "center", gap: 16, marginTop: 32, paddingTop: 24, borderTop: "1px solid #27272a" },
+  pageBtn: { display: "inline-flex", alignItems: "center", gap: 5, padding: "8px 16px", borderRadius: 10, border: "1px solid #27272a", backgroundColor: "#18181b", color: "#f4f4f5", fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" },
+  pageBtnDisabled: { opacity: 0.35, cursor: "not-allowed" },
+  pageInfo: { fontSize: 13, color: "#a1a1aa" },
 
   modalOverlay: { position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)", display: "flex", justifyContent: "center", alignItems: "center", padding: 16, zIndex: 1000 },
   modalContent: { width: "100%", maxWidth: 500, backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: 16, color: "#f4f4f5", overflow: "hidden", boxShadow: "0 25px 50px rgba(0,0,0,0.7)" },
@@ -297,7 +547,7 @@ const styles = {
   field: { display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 },
   label: { fontSize: 13, fontWeight: 500, color: "#f4f4f5" },
   req: { color: "#f43f5e" },
-  input: { width: "100%", boxSizing: "border-box", padding: "10px 14px", borderRadius: 10, border: "1px solid #27272a", backgroundColor: "#0e0e11", color: "#f4f4f5", fontSize: 13, outline: "none", fontFamily: "inherit", transition: "border-color .15s, box-shadow .15s" },
+  input: { width: "100%", boxSizing: "border-box", padding: "8px 12px", borderRadius: 10, border: "1px solid #27272a", backgroundColor: "#0e0e11", color: "#f4f4f5", fontSize: 13, outline: "none", fontFamily: "inherit", transition: "border-color .15s, box-shadow .15s" },
   textarea: { resize: "vertical", lineHeight: 1.6, minHeight: 96 },
   saveBtn: { display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 18px", backgroundColor: "#2563eb", color: "#fff", border: "none", borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: "pointer", boxShadow: "0 8px 20px rgba(37,99,235,0.25)" },
   cancelBtn: { padding: "9px 16px", backgroundColor: "transparent", color: "#a1a1aa", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: "pointer" },

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, Outlet } from "react-router-dom";
-import { Bell, LogOut, BookOpen } from "lucide-react";
+import { Bell, LogOut, BookOpen, CheckCheck } from "lucide-react";
 import { getUser, logout } from "../api/client";
 import useNotifications from "../hooks/useNotifications";
 
@@ -8,6 +8,9 @@ export default function MainLayout() {
   const user = getUser();
   const { items, unread, markAsRead } = useNotifications();
   const [open, setOpen] = useState(false);
+  const [filterUnread, setFilterUnread] = useState(false);
+
+  const displayedItems = filterUnread ? items.filter((n) => !n.is_read) : items;
 
   return (
     <div style={styles.appContainer}>
@@ -29,22 +32,63 @@ export default function MainLayout() {
             {/* Menu Dropdown Thông báo */}
             {open && (
               <div style={styles.dropdown}>
-                <div style={styles.dropdownHeader}>Thông báo</div>
-                <div style={styles.dropdownBody}>
-                  {items.length === 0 && <div style={{ padding: 16, color: "#a1a1aa", textAlign: "center" }}>Không có thông báo</div>}
-                  {items.map((n) => (
-                    <div
-                      key={n.id}
-                      onClick={() => !n.is_read && markAsRead(n.id)}
+                <div style={styles.dropdownHeader}>
+                  <span>Thông báo ({items.length})</span>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button
+                      onClick={() => setFilterUnread(false)}
                       style={{
-                        ...styles.notificationItem,
-                        backgroundColor: n.is_read ? "transparent" : "#27272a",
+                        ...styles.filterBtn,
+                        backgroundColor: !filterUnread ? "#2563eb" : "transparent",
+                        color: !filterUnread ? "#fff" : "#a1a1aa",
                       }}
                     >
-                      <strong style={{ color: "#3b82f6", display: "block", marginBottom: 4 }}>{n.title}</strong>
-                      <div style={{ fontSize: 13, color: "#d4d4d8" }}>{n.message}</div>
+                      Tất cả
+                    </button>
+                    <button
+                      onClick={() => setFilterUnread(true)}
+                      style={{
+                        ...styles.filterBtn,
+                        backgroundColor: filterUnread ? "#2563eb" : "transparent",
+                        color: filterUnread ? "#fff" : "#a1a1aa",
+                      }}
+                    >
+                      Chưa đọc {unread > 0 && `(${unread})`}
+                    </button>
+                  </div>
+                </div>
+
+                <div style={styles.dropdownBody}>
+                  {displayedItems.length === 0 ? (
+                    <div style={{ padding: 24, color: "#a1a1aa", textAlign: "center", fontSize: 13 }}>
+                      {filterUnread ? "Không có thông báo chưa đọc" : "Không có thông báo nào"}
                     </div>
-                  ))}
+                  ) : (
+                    displayedItems.map((n) => (
+                      <div
+                        key={n.id}
+                        onClick={() => !n.is_read && markAsRead(n.id)}
+                        style={{
+                          ...styles.notificationItem,
+                          backgroundColor: n.is_read ? "transparent" : "rgba(37, 99, 235, 0.08)",
+                          borderLeft: n.is_read ? "3px solid transparent" : "3px solid #3b82f6",
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                          <strong style={{ color: n.is_read ? "#d4d4d8" : "#60a5fa", fontSize: 13, display: "block" }}>
+                            {n.title}
+                          </strong>
+                          {!n.is_read && <span style={styles.unreadDot} />}
+                        </div>
+                        <div style={{ fontSize: 12, color: "#a1a1aa", marginTop: 4 }}>{n.message}</div>
+                        {n.created_at && (
+                          <div style={{ fontSize: 11, color: "#71717a", marginTop: 6 }}>
+                            {new Date(n.created_at).toLocaleString("vi-VN")}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             )}
@@ -75,10 +119,12 @@ const styles = {
   headerRight: { display: "flex", gap: 20, alignItems: "center" },
   iconBtn: { background: "none", border: "none", color: "#f4f4f5", cursor: "pointer", position: "relative", padding: 6 },
   badge: { position: "absolute", top: 2, right: 2, backgroundColor: "#ef4444", color: "#fff", fontSize: 10, fontWeight: "bold", borderRadius: "50%", padding: "2px 6px" },
-  dropdown: { position: "absolute", top: 40, right: 0, width: 320, maxHeight: 400, overflowY: "auto", backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: 8, boxShadow: "0 10px 25px rgba(0,0,0,0.5)", zIndex: 100 },
-  dropdownHeader: { padding: "12px 16px", borderBottom: "1px solid #27272a", fontWeight: "bold" },
+  dropdown: { position: "absolute", top: 40, right: 0, width: 340, maxHeight: 420, overflowY: "auto", backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: 12, boxShadow: "0 10px 25px rgba(0,0,0,0.6)", zIndex: 100 },
+  dropdownHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderBottom: "1px solid #27272a", fontWeight: "bold", fontSize: 14 },
+  filterBtn: { padding: "4px 8px", borderRadius: 6, border: "none", fontSize: 11, fontWeight: 500, cursor: "pointer", transition: "all .15s" },
   dropdownBody: { display: "flex", flexDirection: "column" },
-  notificationItem: { padding: 12, borderBottom: "1px solid #27272a", cursor: "pointer", transition: "0.2s" },
+  notificationItem: { padding: "12px 16px", borderBottom: "1px solid #27272a", cursor: "pointer", transition: "background-color 0.15s" },
+  unreadDot: { width: 8, height: 8, borderRadius: "50%", backgroundColor: "#3b82f6", flexShrink: 0, marginTop: 4 },
   userInfo: { fontSize: 14, fontWeight: "bold" },
   roleTag: { color: "#a1a1aa", fontWeight: "normal" },
   logoutBtn: { display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", backgroundColor: "#27272a", color: "#ef4444", border: "1px solid #3f3f46", borderRadius: 6, cursor: "pointer", fontWeight: "bold" },

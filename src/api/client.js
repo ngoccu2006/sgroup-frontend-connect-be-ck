@@ -49,3 +49,32 @@ export async function api(path, { method = "GET", body, headers = {}, raw = fals
   }
   return json;
 }
+
+// ===== Pagination helpers (BE trả { data, pagination: { page, limit, totalItems, totalPages } }) =====
+
+// Ghép query string, bỏ qua giá trị rỗng
+export function withQuery(path, params = {}) {
+  const qs = new URLSearchParams(
+    Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== "")
+  ).toString();
+  return qs ? `${path}?${qs}` : path;
+}
+
+export const EMPTY_PAGINATION = { page: 1, limit: 10, totalItems: 0, totalPages: 0 };
+
+// Lấy toàn bộ bản ghi qua nhiều trang (dùng cho dropdown/select cần đủ danh sách)
+export async function fetchAll(fetchPage, { limit = 100, maxPages = 50 } = {}) {
+  const all = [];
+  for (let page = 1; page <= maxPages; page++) {
+    const { data, pagination } = await fetchPage({ page, limit });
+    all.push(...(data || []));
+    if (!pagination || page >= pagination.totalPages) break;
+  }
+  return all;
+}
+
+// "created_at:DESC" -> { sortBy: "created_at", sortOrder: "DESC" }
+export const parseSort = (v) => {
+  const [sortBy, sortOrder] = String(v).split(":");
+  return { sortBy, sortOrder };
+};

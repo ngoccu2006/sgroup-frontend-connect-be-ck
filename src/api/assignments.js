@@ -1,17 +1,9 @@
-import { api } from "./client";
+import { api, withQuery } from "./client";
 
+// params: { page, limit, sortBy: created_at|title|deadline|maximum_score, sortOrder, q, fromDate, toDate }
 export const assignmentApi = {
   create: (payload) => api("/assignments", { method: "POST", body: payload }),
-  getByClass: (classId, params = {}) => {
-    const queryParts = [];
-    Object.entries(params).forEach(([key, val]) => {
-      if (val !== undefined && val !== null && val !== "") {
-        queryParts.push(`${encodeURIComponent(key)}=${encodeURIComponent(val)}`);
-      }
-    });
-    const queryString = queryParts.length > 0 ? `?${queryParts.join("&")}` : "";
-    return api(`/assignments/class/${classId}${queryString}`);
-  },
+  getByClass: (classId, params = {}) => api(withQuery(`/assignments/class/${classId}`, params)),
   getById: (id) => api(`/assignments/${id}`),
   update: (id, payload) => api(`/assignments/${id}`, { method: "PUT", body: payload }),
   remove: (id) => api(`/assignments/${id}`, { method: "DELETE" }),

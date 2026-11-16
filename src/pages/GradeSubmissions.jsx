@@ -1,9 +1,11 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import { submissionApi } from "../api/submissions";
+import { assignmentApi } from "../api/assignments";
+import { SubmissionHistoryModal } from "../components/SubmissionHistory";
 import {
   ArrowLeft, ExternalLink, Save, ClipboardCheck, Inbox, CircleCheck, Clock, Search, Code2, FileArchive,
-  TrendingUp, Check, ChevronLeft, ChevronRight, ArrowUpDown, X, RotateCcw,
+  TrendingUp, Check, ChevronLeft, ChevronRight, ArrowUpDown, X, RotateCcw, History,
 } from "lucide-react";
 
 export default function GradeSubmissions() {
@@ -22,6 +24,13 @@ export default function GradeSubmissions() {
   const [sortBy, setSortBy] = useState("submitted_at");
   const [sortOrder, setSortOrder] = useState("DESC");
   const [savingId, setSavingId] = useState(null);
+
+  // Thông tin bài tập (tên, điểm tối đa) + submission đang xem lịch sử nộp
+  const [assignment, setAssignment] = useState(null);
+  const [historyOf, setHistoryOf] = useState(null);
+  useEffect(() => {
+    assignmentApi.getById(id).then(({ data }) => setAssignment(data)).catch(() => {});
+  }, [id]);
 
   // Debounce search
   const debounceRef = useRef(null);
@@ -146,7 +155,10 @@ export default function GradeSubmissions() {
         <div style={styles.headerIcon}><ClipboardCheck size={26} /></div>
         <div>
           <h2 style={styles.title}>Quản lý & Chấm điểm bài nộp</h2>
-          <p style={styles.subtitle}>Chấm điểm và gửi nhận xét — học viên sẽ nhận thông báo ngay.</p>
+          <p style={styles.subtitle}>
+            {assignment ? <><strong style={{ color: "#e4e4e7" }}>{assignment.title}</strong> · Điểm tối đa {assignment.maximum_score} · </> : null}
+            Chấm điểm và gửi nhận xét — học viên sẽ nhận thông báo ngay.
+          </p>
         </div>
       </div>
 
@@ -279,10 +291,21 @@ export default function GradeSubmissions() {
                       </div>
                     </div>
                   </div>
-                  <span style={{ ...styles.statusPill, color: accent, backgroundColor: `${accent}1f`, borderColor: `${accent}4d` }}>
-                    {graded ? <Check size={13} /> : <span className="gs-pulse" style={{ ...styles.statusDot, backgroundColor: accent }} />}
-                    {graded ? `Đã chấm: ${s.score}` : "Chờ chấm"}
-                  </span>
+                  <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+                    <span style={{ ...styles.statusPill, color: accent, backgroundColor: `${accent}1f`, borderColor: `${accent}4d` }}>
+                      {graded ? <Check size={13} /> : <span className="gs-pulse" style={{ ...styles.statusDot, backgroundColor: accent }} />}
+                      {graded ? `Đã chấm: ${s.score}` : (s.version || 1) > 1 ? "Nộp lại · chờ chấm" : "Chờ chấm"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setHistoryOf(s)}
+                      className="gs-history"
+                      style={{ ...styles.versionBtn, ...((s.version || 1) > 1 ? styles.versionBtnActive : {}) }}
+                      title="Xem lịch sử các lần nộp"
+                    >
+                      <History size={12} /> v{s.version || 1}{(s.version || 1) > 1 ? ` · ${(s.version || 1) - 1} bản cũ` : ""}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Giữa: nội dung bài nộp */}
@@ -317,6 +340,8 @@ export default function GradeSubmissions() {
                     type="number"
                     step="0.1"
                     defaultValue={s.score ?? ""}
+                    min={0}
+                    max={assignment?.maximum_score}
                     placeholder="Điểm"
                     required
                     className="gs-input"
@@ -370,6 +395,12 @@ export default function GradeSubmissions() {
           </div>
         </div>
       )}
+
+      <SubmissionHistoryModal
+        submission={historyOf}
+        maxScore={assignment?.maximum_score}
+        onClose={() => setHistoryOf(null)}
+      />
     </div>
   );
 }
@@ -412,6 +443,8 @@ const css = `
   .gs-back:hover { color: #f4f4f5 !important; }
   .gs-back-icon { transition: transform .15s; }
   .gs-back:hover .gs-back-icon { transform: translateX(-2px); }
+  .gs-history { transition: border-color .15s, color .15s; }
+  .gs-history:hover { border-color: rgba(139,92,246,0.6) !important; color: #ddd6fe !important; }
   .gs-tab:hover { color: #f4f4f5 !important; }
   .gs-chip { transition: border-color .15s; }
   .gs-chip:hover { border-color: rgba(59,130,246,0.5) !important; }
@@ -464,6 +497,8 @@ const styles = {
   email: { marginTop: 2, fontSize: 12, color: "#a1a1aa", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   time: { display: "flex", alignItems: "center", gap: 6, marginTop: 8, fontSize: 12, color: "#71717a" },
   statusPill: { alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 10px", borderRadius: 999, border: "1px solid", fontSize: 11, fontWeight: 600 },
+  versionBtn: { display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 9px", borderRadius: 999, border: "1px solid #3f3f46", backgroundColor: "transparent", color: "#a1a1aa", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" },
+  versionBtnActive: { color: "#c4b5fd", backgroundColor: "rgba(139,92,246,0.12)", borderColor: "rgba(139,92,246,0.35)" },
   statusDot: { width: 6, height: 6, borderRadius: "50%" },
   sectionLabel: { display: "block", marginBottom: 8, fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em", color: "#71717a" },
   note: { padding: 12, borderRadius: 8, fontSize: 13, lineHeight: 1.6, color: "#d4d4d8", backgroundColor: "#121215", border: "1px solid #27272a", whiteSpace: "pre-wrap", wordBreak: "break-word" },

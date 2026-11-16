@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Link, useParams } from "react-router-dom";
-import { getUser } from "../api/client";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { getUser, fetchAll } from "../api/client";
+import ClassFormModal from "../components/ClassFormModal";
+import ScheduleSection from "../components/ScheduleSection";
 import { classApi, classMemberApi } from "../api/classes";
 import { lessonApi } from "../api/lessons";
 import { assignmentApi } from "../api/assignments";
@@ -9,7 +11,7 @@ import {
   CheckCircle, FileText, ArrowLeft, Plus, Download, X, Target, BookOpen, ClipboardList, Clock,
   AlarmClockOff, Infinity as InfinityIcon, ArrowRight, Check, ListOrdered, Trophy, CalendarClock,
   AlertTriangle, FilePlus2, BookPlus, Search, ArrowUpDown, ChevronLeft, ChevronRight, RotateCcw,
-  Users, Mail, UserPlus,
+  Users, Mail, UserPlus, Pencil, Trash2, UserCheck, UserX, CalendarRange, CalendarDays,
 } from "lucide-react";
 
 export default function ClassDetail() {
@@ -17,8 +19,41 @@ export default function ClassDetail() {
   const user = getUser();
   const isMentorOrAdmin = ["MENTOR", "ADMIN"].includes(user?.role);
 
-  // Tabs: "CONTENT" (Lessons & Assignments) or "MEMBERS" (Class Members)
+  // Tabs: "CONTENT" (Lessons & Assignments), "SCHEDULE" (Lịch học) or "MEMBERS" (Class Members)
   const [activeTab, setActiveTab] = useState("CONTENT");
+
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Thông tin lớp: lấy từ state khi bấm từ danh sách; mở trực tiếp URL thì tìm trong danh sách lớp
+  // (BE chưa có GET /classes/:id)
+  const [cls, setCls] = useState(location.state?.cls?.id === classId ? location.state.cls : null);
+  const [editingClass, setEditingClass] = useState(false);
+  const [deletingClass, setDeletingClass] = useState(false);
+
+  useEffect(() => {
+    if (cls?.id === classId) return;
+    fetchAll((p) => classApi.getAll(p))
+      .then((all) => setCls(all.find((c) => c.id === classId) || null))
+      .catch(() => {});
+  }, [classId, cls?.id]);
+
+  // Admin quản lý mọi lớp; Mentor chỉ lớp mình phụ trách (chưa biết lớp thì tạm cho hiện, BE sẽ chặn)
+  const canManageClass = user?.role === "ADMIN" || (user?.role === "MENTOR" && (!cls || cls.mentor_id === user?.id));
+
+  const handleDeleteClass = async () => {
+    const name = cls?.name || "này";
+    if (!window.confirm(`Xoá lớp "${name}"?\n\nToàn bộ dữ liệu của lớp (bài học, bài tập, lịch học, học viên...) có thể bị xoá theo. Thao tác này không thể hoàn tác.`)) return;
+    setDeletingClass(true);
+    try {
+      await classApi.remove(classId);
+      alert("Đã xoá lớp học!");
+      navigate("/classes", { replace: true });
+    } catch (err) {
+      alert(err.message || "Xoá lớp học thất bại (lớp có thể còn dữ liệu liên quan)");
+      setDeletingClass(false);
+    }
+  };
 
   // --- Lessons State ---
   const [lessons, setLessons] = useState([]);
@@ -317,6 +352,56 @@ export default function ClassDetail() {
         )}
       </div>
 
+      {/* Thông tin lớp + sửa/xoá */}
+      {cls && (
+        <section style={styles.classCard}>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <span style={styles.classKicker}>Lớp học</span>
+            <h1 style={styles.className}>{cls.name || "Lớp học chưa đặt tên"}</h1>
+            {cls.description && <p style={styles.classDesc}>{cls.description}</p>}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
+              {(cls.start_date || cls.end_date) && (
+                <span style={styles.classChip}>
+                  <CalendarRange size={13} />
+                  {cls.start_date ? fmtDay(cls.start_date) : "?"} – {cls.end_date ? fmtDay(cls.end_date) : "?"}
+                </span>
+              )}
+              {isMentorOrAdmin && (cls.mentor_id ? (
+                <span style={{ ...styles.classChip, ...styles.classChipMentor }}>
+                  <UserCheck size={13} /> {cls.mentor_id === user?.id ? "Bạn là mentor phụ trách" : "Đã phân công mentor"}
+                </span>
+              ) : (
+                <span style={{ ...styles.classChip, ...styles.classChipWarn }}>
+                  <UserX size={13} /> Chưa phân công mentor
+                </span>
+              ))}
+            </div>
+          </div>
+          {canManageClass && (
+            <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+              <button onClick={() => setEditingClass(true)} className="cd-btn-ghost" style={styles.classBtn}>
+                <Pencil size={14} /> Sửa lớp
+              </button>
+              <button onClick={handleDeleteClass} disabled={deletingClass} className="cd-btn-danger" style={{ ...styles.classBtn, ...styles.classBtnDanger }}>
+                {deletingClass ? <div className="cd-spinner cd-spinner-sm" /> : <Trash2 size={14} />} Xoá lớp
+              </button>
+            </div>
+          )}
+        </section>
+      )}
+
+      {editingClass && cls && (
+        <ClassFormModal
+          initial={cls}
+          onClose={() => setEditingClass(false)}
+          onSaved={(saved) => {
+            setCls({ ...cls, ...saved });
+            setEditingClass(false);
+            alert("Đã cập nhật lớp học!");
+          }}
+        />
+      )}
+
       {/* Tiến độ học tập */}
       {progress && (
         <section style={styles.heroCard}>
@@ -367,6 +452,13 @@ export default function ClassDetail() {
           <BookOpen size={16} /> Lộ trình & Bài tập ({lessonTotal + assignmentTotal})
         </button>
         <button
+          onClick={() => setActiveTab("SCHEDULE")}
+          className="cd-tab"
+          style={{ ...styles.tabBtn, ...(activeTab === "SCHEDULE" ? styles.tabBtnActive : {}) }}
+        >
+          <CalendarDays size={16} /> Lịch học
+        </button>
+        <button
           onClick={() => setActiveTab("MEMBERS")}
           className="cd-tab"
           style={{ ...styles.tabBtn, ...(activeTab === "MEMBERS" ? styles.tabBtnActive : {}) }}
@@ -375,7 +467,9 @@ export default function ClassDetail() {
         </button>
       </div>
 
-      {activeTab === "CONTENT" ? (
+      {activeTab === "SCHEDULE" ? (
+        <ScheduleSection classId={classId} canManage={isMentorOrAdmin && canManageClass} />
+      ) : activeTab === "CONTENT" ? (
         <div className="cd-grid">
           {/* Cột 1: Danh sách Bài học */}
           <section style={styles.sectionBox}>
@@ -898,6 +992,7 @@ const getInitials = (name) =>
     .toUpperCase();
 
 const DAY = 24 * 60 * 60 * 1000;
+const fmtDay = (d) => new Date(d).toLocaleDateString("vi-VN");
 
 const describeDeadline = (deadline) => {
   if (!deadline) {
@@ -941,6 +1036,8 @@ const css = `
   .cd-btn-excel:hover:not(:disabled) { background-color: rgba(16,185,129,0.2) !important; }
   .cd-btn-complete:hover:not(:disabled) { color: #34d399 !important; background-color: rgba(16,185,129,0.12) !important; border-color: rgba(16,185,129,0.4) !important; }
   .cd-btn-detail:hover { background-color: rgba(245,158,11,0.2) !important; color: #fde68a !important; }
+  .cd-btn-danger { transition: background-color .15s; }
+  .cd-btn-danger:hover:not(:disabled) { background-color: rgba(244,63,94,0.2) !important; }
   .cd-btn-ghost:hover { color: #f4f4f5 !important; background-color: #27272a !important; }
   .cd-btn-page { transition: background-color .15s, color .15s; }
   .cd-btn-page:hover:not(:disabled) { background-color: #27272a !important; color: #f4f4f5 !important; }
@@ -966,6 +1063,15 @@ const styles = {
   backBtn: { display: "inline-flex", alignItems: "center", gap: 6, color: "#a1a1aa", textDecoration: "none", fontSize: 13, fontWeight: 500, transition: "color .15s" },
   excelBtn: { display: "inline-flex", alignItems: "center", gap: 8, backgroundColor: "rgba(16,185,129,0.1)", color: "#34d399", border: "1px solid rgba(16,185,129,0.3)", padding: "8px 14px", borderRadius: 10, cursor: "pointer", fontWeight: 500, fontSize: 13 },
 
+  classCard: { display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", gap: 16, backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: 16, padding: 24 },
+  classKicker: { display: "inline-block", marginBottom: 8, padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "#60a5fa", backgroundColor: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.2)" },
+  className: { margin: 0, fontSize: 24, fontWeight: 700, color: "#f4f4f5", letterSpacing: "-0.02em" },
+  classDesc: { margin: "8px 0 0", fontSize: 13, lineHeight: 1.65, color: "#a1a1aa", whiteSpace: "pre-wrap", maxWidth: 860 },
+  classChip: { display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 999, fontSize: 12, fontWeight: 500, color: "#d4d4d8", backgroundColor: "#202024", border: "1px solid #27272a" },
+  classChipMentor: { color: "#6ee7b7", backgroundColor: "rgba(16,185,129,0.1)", borderColor: "rgba(16,185,129,0.3)" },
+  classChipWarn: { color: "#fbbf24", backgroundColor: "rgba(245,158,11,0.1)", borderColor: "rgba(245,158,11,0.3)" },
+  classBtn: { display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, border: "1px solid #3f3f46", backgroundColor: "transparent", color: "#d4d4d8", fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" },
+  classBtnDanger: { color: "#fb7185", backgroundColor: "rgba(244,63,94,0.1)", borderColor: "rgba(244,63,94,0.3)" },
   heroCard: { position: "relative", overflow: "hidden", backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: 16, padding: 24, boxShadow: "0 20px 40px rgba(0,0,0,0.35)" },
   glow: { position: "absolute", width: 260, height: 260, borderRadius: "50%", filter: "blur(60px)", pointerEvents: "none" },
   heroTop: { display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 20 },

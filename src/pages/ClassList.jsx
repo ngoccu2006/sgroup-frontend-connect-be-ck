@@ -1,15 +1,19 @@
 import { useEffect, useState, useRef, useTransition } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { classApi } from "../api/classes";
-import { getUser } from "../api/client";
+import { userApi } from "../api/users";
+import { getUser, fetchAll } from "../api/client";
+import ClassFormModal from "../components/ClassFormModal";
 import {
-  Calendar, ArrowRight, Plus, X, School, Search, BookmarkPlus, Check, FolderOpen,
-  TriangleAlert, ChevronLeft, ChevronRight, ArrowUpDown, Filter, RotateCcw
+  Calendar, ArrowRight, Plus, X, School, Search, FolderOpen,
+  TriangleAlert, ChevronLeft, ChevronRight, ArrowUpDown, Filter, RotateCcw,
+  UserCheck, UserX, Pencil, Trash2,
 } from "lucide-react";
 
 export default function ClassList() {
   const user = getUser();
   const isMentorOrAdmin = ["MENTOR", "ADMIN"].includes(user?.role);
+  const isAdmin = user?.role === "ADMIN";
 
   // Đồng bộ trạng thái trên URL
   const [searchParams, setSearchParams] = useSearchParams();
@@ -38,10 +42,27 @@ export default function ClassList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Modal State
-  const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ name: "", description: "" });
-  const [submitting, setSubmitting] = useState(false);
+  // Modal: undefined = đóng, null = tạo mới, object = sửa lớp đó
+  const [editingClass, setEditingClass] = useState(undefined);
+  const [deletingId, setDeletingId] = useState(null);
+
+  // Mentor chỉ sửa/xoá được lớp mình phụ trách; Admin sửa/xoá mọi lớp
+  const canManage = (c) => isAdmin || (user?.role === "MENTOR" && c.mentor_id === user?.id);
+
+  // Danh sách mentor (chỉ Admin gọi được GET /users) để phân công + hiển thị tên trên thẻ lớp
+  const [mentors, setMentors] = useState([]);
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetchAll((p) => userApi.getAll({ ...p, role: "MENTOR", sortBy: "full_name", sortOrder: "ASC" }))
+      .then((users) => setMentors(users.filter((u) => u.role === "MENTOR")))
+      .catch(() => setMentors([]));
+  }, [isAdmin]);
+  const mentorName = (id) => {
+    if (!id) return null;
+    if (id === user?.id) return "Bạn";
+    const m = mentors.find((u) => u.id === id);
+    return m ? m.full_name || m.email : isAdmin ? "Mentor không xác định" : "Đã phân công";
+  };
 
   // Cập nhật URL params
   const updateParams = (newParams) => {
@@ -140,20 +161,29 @@ export default function ClassList() {
     loadClasses();
   }, [page, limit, q, sortBy, order, fromDate, toDate]);
 
-  const handleCreateClass = async (e) => {
-    e.preventDefault();
-    setSubmitting(true);
+  const handleSaved = (saved) => {
+    const isEdit = Boolean(editingClass?.id);
+    setEditingClass(undefined);
+    alert(isEdit ? `Đã cập nhật lớp "${className(saved)}"!` : "Tạo lớp học mới thành công!");
+    if (!isEdit && page !== 1) updateParams({ page: 1 });
+    else loadClasses();
+  };
+
+  const handleDelete = async (c) => {
+    const ok = window.confirm(
+      `Xoá lớp "${className(c)}"?\n\nToàn bộ dữ liệu của lớp (bài học, bài tập, lịch học, học viên...) có thể bị xoá theo. Thao tác này không thể hoàn tác.`
+    );
+    if (!ok) return;
+    setDeletingId(c.id);
     try {
-      await classApi.create(form);
-      alert("Tạo lớp học mới thành công!");
-      setShowModal(false);
-      setForm({ name: "", description: "" });
-      updateParams({ page: 1 });
-      loadClasses();
+      await classApi.remove(c.id);
+      // Xoá phần tử cuối cùng của trang -> lùi về trang trước
+      if (classes.length === 1 && page > 1) updateParams({ page: page - 1 });
+      else loadClasses();
     } catch (err) {
-      alert(err.message || "Tạo lớp học thất bại");
+      alert(err.message || "Xoá lớp học thất bại (lớp có thể còn dữ liệu liên quan)");
     } finally {
-      setSubmitting(false);
+      setDeletingId(null);
     }
   };
 
@@ -177,7 +207,7 @@ export default function ClassList() {
         </div>
 
         {isMentorOrAdmin && (
-          <button onClick={() => setShowModal(true)} className="cl-btn-primary" style={styles.createBtn}>
+          <button onClick={() => setEditingClass(null)} className="cl-btn-primary" style={styles.createBtn}>
             <Plus size={16} /> Tạo Lớp Học Mới
           </button>
         )}
@@ -333,7 +363,25 @@ export default function ClassList() {
               const name = className(c);
               const hue = hashHue(name);
               return (
-                <Link key={c.id} to={`/classes/${c.id}`} className="cl-card" style={styles.card}>
+                <div key={c.id} className="cl-card" style={styles.card}>
+                {canManage(c) && (
+                  <div className="cl-actions" style={styles.cardActions}>
+                    <button type="button" onClick={() => setEditingClass(c)} className="cl-action" style={styles.actionBtn} title="Sửa lớp học">
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(c)}
+                      disabled={deletingId === c.id}
+                      className="cl-action cl-action-danger"
+                      style={styles.actionBtn}
+                      title="Xoá lớp học"
+                    >
+                      {deletingId === c.id ? <div className="cl-spinner cl-spinner-sm" /> : <Trash2 size={14} />}
+                    </button>
+                  </div>
+                )}
+                <Link to={`/classes/${c.id}`} state={{ cls: c }} style={styles.cardLink}>
                   <div style={{ ...styles.banner, background: `linear-gradient(90deg, hsl(${hue} 80% 55%), hsl(${(hue + 40) % 360} 75% 55%))` }} />
                   <div style={styles.cardBody}>
                     <div
@@ -348,16 +396,31 @@ export default function ClassList() {
                     </div>
                     <h3 className="cl-card-title cl-clamp-2" style={styles.cardTitle}>{name}</h3>
                     <p className="cl-clamp-3" style={styles.cardDesc}>{c.description || "Chưa có mô tả cho lớp học này."}</p>
+                    {isMentorOrAdmin && (
+                      c.mentor_id ? (
+                        <span style={{ ...styles.mentorChip, ...(c.mentor_id === user?.id ? styles.mentorChipMine : {}) }}>
+                          <UserCheck size={12} /> Mentor: {mentorName(c.mentor_id)}
+                        </span>
+                      ) : (
+                        <span style={{ ...styles.mentorChip, ...styles.mentorChipNone }}>
+                          <UserX size={12} /> Chưa phân công mentor
+                        </span>
+                      )
+                    )}
                   </div>
                   <div style={styles.cardFooter}>
                     <span style={styles.dateInfo}>
-                      <Calendar size={14} /> Bắt đầu: {c.start_date ? new Date(c.start_date).toLocaleDateString("vi-VN") : c.created_at ? new Date(c.created_at).toLocaleDateString("vi-VN") : "N/A"}
+                      <Calendar size={14} />
+                      {c.start_date
+                        ? <>{fmtDate(c.start_date)}{c.end_date ? ` – ${fmtDate(c.end_date)}` : ""}</>
+                        : <>Tạo ngày: {c.created_at ? fmtDate(c.created_at) : "N/A"}</>}
                     </span>
                     <span className="cl-detail" style={styles.detailLink}>
                       Xem chi tiết <ArrowRight size={14} />
                     </span>
                   </div>
                 </Link>
+                </div>
               );
             })}
           </div>
@@ -392,61 +455,20 @@ export default function ClassList() {
         </>
       )}
 
-      {/* Modal Tạo Lớp Học Mới */}
-      {showModal && (
-        <div style={styles.modalOverlay} onClick={() => setShowModal(false)}>
-          <div className="cl-modal" style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={styles.modalIcon}><BookmarkPlus size={20} /></div>
-                <div>
-                  <h3 style={styles.modalTitle}>Tạo Lớp Học Mới</h3>
-                  <p style={styles.modalSubtitle}>Tạo lớp học mới và thiết lập lộ trình giảng dạy</p>
-                </div>
-              </div>
-              <button type="button" onClick={() => setShowModal(false)} className="cl-btn-ghost" style={styles.closeBtn} title="Đóng">
-                <X size={18} />
-              </button>
-            </div>
-            <form onSubmit={handleCreateClass}>
-              <div style={styles.modalBody}>
-                <div style={styles.field}>
-                  <label style={styles.label}>Tên Lớp Học <span style={styles.req}>*</span></label>
-                  <input
-                    required
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    placeholder="Ví dụ: Lập trình ReactJS Thực Chiến"
-                    className="cl-input"
-                    style={styles.input}
-                  />
-                </div>
-                <div style={{ ...styles.field, marginBottom: 0 }}>
-                  <label style={styles.label}>Mô Tả Lớp Học</label>
-                  <textarea
-                    rows={4}
-                    value={form.description}
-                    onChange={(e) => setForm({ ...form, description: e.target.value })}
-                    placeholder="Mô tả ngắn gọn về khóa học/lớp học..."
-                    className="cl-input"
-                    style={{ ...styles.input, ...styles.textarea }}
-                  />
-                </div>
-              </div>
-              <div style={styles.modalFooter}>
-                <button type="button" onClick={() => setShowModal(false)} className="cl-btn-ghost" style={styles.cancelBtn}>Hủy</button>
-                <button disabled={submitting} type="submit" className="cl-btn-primary" style={styles.saveBtn}>
-                  {submitting ? <div className="cl-spinner cl-spinner-sm" /> : <Check size={16} />}
-                  {submitting ? "Đang tạo..." : "Tạo Lớp Học"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* Modal Tạo / Sửa Lớp Học */}
+      {editingClass !== undefined && (
+        <ClassFormModal
+          initial={editingClass}
+          mentors={isAdmin ? mentors : undefined}
+          onSaved={handleSaved}
+          onClose={() => setEditingClass(undefined)}
+        />
       )}
     </div>
   );
 }
+
+const fmtDate = (d) => new Date(d).toLocaleDateString("vi-VN");
 
 const className = (c) => c.title || c.name || "Lớp học chưa đặt tên";
 
@@ -469,6 +491,12 @@ const css = `
   .cl-card { transition: transform .2s, border-color .2s, box-shadow .2s; }
   .cl-card:hover { transform: translateY(-2px); border-color: #3f3f46 !important; box-shadow: 0 16px 32px rgba(0,0,0,0.4); }
   .cl-card-title { transition: color .15s; }
+  .cl-actions { opacity: 0; transition: opacity .15s; }
+  .cl-card:hover .cl-actions, .cl-actions:focus-within { opacity: 1; }
+  @media (hover: none) { .cl-actions { opacity: 1; } }
+  .cl-action { transition: background-color .15s, color .15s; }
+  .cl-action:hover:not(:disabled) { color: #f4f4f5 !important; background-color: #27272a !important; }
+  .cl-action-danger:hover:not(:disabled) { color: #fb7185 !important; background-color: rgba(244,63,94,0.12) !important; }
   .cl-card:hover .cl-card-title { color: #60a5fa; }
   .cl-detail { transition: transform .15s; }
   .cl-card:hover .cl-detail { transform: translateX(2px); }
@@ -516,7 +544,13 @@ const styles = {
   dot: { width: 6, height: 6, borderRadius: "50%", backgroundColor: "#3b82f6" },
 
   grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 24 },
-  card: { display: "flex", flexDirection: "column", justifyContent: "space-between", overflow: "hidden", textDecoration: "none", backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: 12 },
+  card: { position: "relative", display: "flex", flexDirection: "column", overflow: "hidden", backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: 12 },
+  cardLink: { flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between", color: "inherit", textDecoration: "none" },
+  cardActions: { position: "absolute", top: 14, right: 12, zIndex: 2, display: "flex", gap: 4, padding: 3, borderRadius: 10, backgroundColor: "rgba(24,24,27,0.9)", border: "1px solid #27272a" },
+  actionBtn: { display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, border: "none", borderRadius: 7, backgroundColor: "transparent", color: "#a1a1aa", cursor: "pointer" },
+  mentorChip: { display: "inline-flex", alignItems: "center", gap: 5, marginTop: 12, padding: "3px 9px", borderRadius: 999, fontSize: 11, fontWeight: 600, color: "#c4b5fd", backgroundColor: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)" },
+  mentorChipMine: { color: "#6ee7b7", backgroundColor: "rgba(16,185,129,0.12)", borderColor: "rgba(16,185,129,0.3)" },
+  mentorChipNone: { color: "#fbbf24", backgroundColor: "rgba(245,158,11,0.1)", borderColor: "rgba(245,158,11,0.3)" },
   banner: { height: 6, width: "100%" },
   cardBody: { padding: 20, flex: 1 },
   initials: { width: 38, height: 38, marginBottom: 14, borderRadius: 10, border: "1px solid", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 600, letterSpacing: "0.05em" },
@@ -534,21 +568,6 @@ const styles = {
   pageBtnDisabled: { opacity: 0.35, cursor: "not-allowed" },
   pageInfo: { fontSize: 13, color: "#a1a1aa" },
 
-  modalOverlay: { position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)", display: "flex", justifyContent: "center", alignItems: "center", padding: 16, zIndex: 1000 },
-  modalContent: { width: "100%", maxWidth: 500, backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: 16, color: "#f4f4f5", overflow: "hidden", boxShadow: "0 25px 50px rgba(0,0,0,0.7)" },
-  modalHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 24px", borderBottom: "1px solid #27272a", backgroundColor: "#1b1b1e" },
-  modalIcon: { width: 40, height: 40, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", color: "#60a5fa", backgroundColor: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.3)" },
-  modalTitle: { margin: 0, fontSize: 16, fontWeight: 600, letterSpacing: "-0.01em" },
-  modalSubtitle: { margin: "2px 0 0", fontSize: 12, color: "#a1a1aa" },
-  closeBtn: { display: "flex", padding: 6, border: "none", borderRadius: 8, backgroundColor: "transparent", color: "#a1a1aa", cursor: "pointer" },
-  modalBody: { padding: 24 },
-  modalFooter: { display: "flex", justifyContent: "flex-end", gap: 12, padding: "14px 24px", borderTop: "1px solid #27272a", backgroundColor: "#141416" },
 
-  field: { display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 },
-  label: { fontSize: 13, fontWeight: 500, color: "#f4f4f5" },
-  req: { color: "#f43f5e" },
   input: { width: "100%", boxSizing: "border-box", padding: "8px 12px", borderRadius: 10, border: "1px solid #27272a", backgroundColor: "#0e0e11", color: "#f4f4f5", fontSize: 13, outline: "none", fontFamily: "inherit", transition: "border-color .15s, box-shadow .15s" },
-  textarea: { resize: "vertical", lineHeight: 1.6, minHeight: 96 },
-  saveBtn: { display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 18px", backgroundColor: "#2563eb", color: "#fff", border: "none", borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: "pointer", boxShadow: "0 8px 20px rgba(37,99,235,0.25)" },
-  cancelBtn: { padding: "9px 16px", backgroundColor: "transparent", color: "#a1a1aa", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: "pointer" },
 };

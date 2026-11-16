@@ -3,9 +3,11 @@ import { Link, useParams } from "react-router-dom";
 import { getUser } from "../api/client";
 import { assignmentApi } from "../api/assignments";
 import { submissionApi } from "../api/submissions";
+import { SubmissionTimeline } from "../components/SubmissionHistory";
 import {
   ArrowLeft, FileCheck, Upload, ExternalLink, Trophy, Clock, Info, CloudUpload, FileArchive,
   X, CheckCircle2, Download, FileText, BadgeCheck, RefreshCw, Send, Inbox, Hourglass, Link2,
+  History, ChevronDown, Layers,
 } from "lucide-react";
 
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
@@ -22,6 +24,10 @@ export default function AssignmentDetail() {
   const [file, setFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Lịch sử nộp bài (versioning)
+  const [historyKey, setHistoryKey] = useState(0);
+  const [historyOpen, setHistoryOpen] = useState(null); // null = theo mặc định (mở nếu đã nộp lại)
 
   // UI state (vùng kéo thả file)
   const [dragOver, setDragOver] = useState(false);
@@ -58,7 +64,9 @@ export default function AssignmentDetail() {
         file,
       });
       setMySubmission(data);
-      alert("Nộp bài thành công!");
+      setHistoryKey((k) => k + 1); // tải lại timeline
+      clearFile();
+      alert(data?.version > 1 ? `Nộp lại thành công! Đây là lần nộp thứ ${data.version}.` : "Nộp bài thành công!");
     } catch (e) {
       alert(e.message || "Nộp bài thất bại");
     } finally {
@@ -103,6 +111,9 @@ export default function AssignmentDetail() {
   const scorePercent = isGraded && assignment.maximum_score
     ? Math.min(100, Math.round((mySubmission.score / assignment.maximum_score) * 100))
     : 0;
+
+  const version = mySubmission?.version || (mySubmission ? 1 : 0);
+  const showHistory = historyOpen ?? version > 1;
 
   const status = isGraded
     ? { text: "Đã chấm điểm", color: "#60a5fa" }
@@ -149,6 +160,11 @@ export default function AssignmentDetail() {
             <span style={{ ...styles.statusDot, backgroundColor: status.color }} />
             {status.text}
           </div>
+          {mySubmission && (
+            <div style={{ ...styles.chip, color: "#c4b5fd", backgroundColor: "rgba(139,92,246,0.1)", borderColor: "rgba(139,92,246,0.3)" }}>
+              <Layers size={15} /> Lần nộp thứ {version}
+            </div>
+          )}
         </div>
       </section>
 
@@ -158,7 +174,7 @@ export default function AssignmentDetail() {
           <div style={styles.cardHeader}>
             <div style={styles.cardTitle}>
               {mySubmission ? <RefreshCw size={18} color="#60a5fa" /> : <Send size={18} color="#60a5fa" />}
-              {mySubmission ? "Nộp lại bài làm (ghi đè)" : "Nộp bài làm"}
+              {mySubmission ? `Nộp lại bài làm (phiên bản ${version + 1})` : "Nộp bài làm"}
             </div>
           </div>
 
@@ -166,7 +182,9 @@ export default function AssignmentDetail() {
             <div style={styles.noteWarn}>
               <Info size={16} color="#fbbf24" style={{ flexShrink: 0, marginTop: 1 }} />
               <div>
-                <strong style={{ color: "#fcd34d" }}>Lưu ý:</strong> Nộp lại sẽ ghi đè bài làm trước đó. Giảng viên sẽ chấm phiên bản nộp gần nhất.
+                <strong style={{ color: "#fcd34d" }}>Lưu ý:</strong> Nộp lại sẽ tạo <strong>phiên bản v{version + 1}</strong>.
+                Bản v{version} được lưu vào lịch sử{isGraded ? <>, <strong>điểm & nhận xét hiện tại sẽ bị xoá</strong> để giảng viên chấm lại</> : ""}.
+                Giảng viên sẽ chấm phiên bản nộp gần nhất.
               </div>
             </div>
           )}
@@ -249,7 +267,7 @@ export default function AssignmentDetail() {
 
           <button type="submit" disabled={submitting} className="ad-btn-primary" style={{ ...styles.submitBtn, ...(submitting ? styles.submitBtnDisabled : {}) }}>
             {submitting ? <div className="ad-spinner ad-spinner-sm" /> : <Upload size={16} />}
-            {submitting ? "Đang gửi bài..." : "Gửi bài nộp"}
+            {submitting ? "Đang gửi bài..." : mySubmission ? `Nộp lại (v${version + 1})` : "Gửi bài nộp"}
           </button>
         </form>
 
@@ -261,6 +279,7 @@ export default function AssignmentDetail() {
                 <div style={styles.cardTitle}>
                   <CheckCircle2 size={18} color="#34d399" /> Bài làm đã nộp
                 </div>
+                <span style={{ ...styles.tag, color: "#c4b5fd", borderColor: "rgba(139,92,246,0.3)" }}>Phiên bản v{version}</span>
               </div>
 
               <div style={styles.infoRow}>
@@ -340,6 +359,33 @@ export default function AssignmentDetail() {
                 <div style={styles.pending}>
                   <Hourglass size={16} /> Chưa được chấm điểm
                 </div>
+              )}
+            </section>
+          )}
+
+          {/* Lịch sử các lần nộp */}
+          {mySubmission && (
+            <section style={{ ...styles.card, marginBottom: 0 }}>
+              <button
+                type="button"
+                onClick={() => setHistoryOpen(!showHistory)}
+                className="ad-collapse"
+                style={{ ...styles.cardHeader, ...styles.collapseBtn, ...(showHistory ? {} : { marginBottom: 0, paddingBottom: 0, borderBottom: "none" }) }}
+              >
+                <div style={styles.cardTitle}>
+                  <History size={18} color="#a78bfa" /> Lịch sử nộp bài
+                  <span style={styles.tag}>{version} phiên bản</span>
+                </div>
+                <ChevronDown size={18} color="#a1a1aa" style={{ transition: "transform .2s", transform: showHistory ? "rotate(180deg)" : "none" }} />
+              </button>
+              {showHistory && (
+                version > 1 ? (
+                  <SubmissionTimeline submissionId={mySubmission.id} maxScore={assignment.maximum_score} reloadKey={historyKey} />
+                ) : (
+                  <div style={styles.pending}>
+                    <History size={16} /> Bạn mới nộp 1 lần — các lần nộp lại sẽ được lưu tại đây.
+                  </div>
+                )
               )}
             </section>
           )}
@@ -443,5 +489,6 @@ const styles = {
   progressBar: { height: "100%", borderRadius: 999, background: "linear-gradient(90deg, #3b82f6, #34d399)", transition: "width .4s" },
   feedback: { padding: 14, borderRadius: 8, backgroundColor: "rgba(32,32,36,0.6)", border: "1px solid #27272a" },
   quote: { paddingLeft: 12, borderLeft: "2px solid rgba(59,130,246,0.5)", fontSize: 13, lineHeight: 1.6, color: "#d4d4d8", fontStyle: "italic", whiteSpace: "pre-wrap" },
+  collapseBtn: { width: "100%", background: "none", borderTop: "none", borderLeft: "none", borderRight: "none", padding: "0 0 16px", cursor: "pointer", fontFamily: "inherit", textAlign: "left" },
   pending: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: 20, borderRadius: 8, fontSize: 13, color: "#a1a1aa", backgroundColor: "#09090b", border: "1px dashed #27272a" },
 };

@@ -1,15 +1,7 @@
-import { api } from "./client";
+import { api, withQuery } from "./client";
 
+// params: { page, limit, sortBy, order, q, isRead }
 export const notificationApi = {
-  getMine: (params = {}) => {
-    const queryParts = [];
-    Object.entries(params).forEach(([key, val]) => {
-      if (val !== undefined && val !== null && val !== "") {
-        queryParts.push(`${encodeURIComponent(key)}=${encodeURIComponent(val)}`);
-      }
-    });
-    const queryString = queryParts.length > 0 ? `?${queryParts.join("&")}` : "";
-    return api(`/notifications${queryString}`);
-  },
+  getMine: (params = {}) => api(withQuery("/notifications", params)),
   markAsRead: (id) => api(`/notifications/${id}/read`, { method: "PATCH" }),
 };

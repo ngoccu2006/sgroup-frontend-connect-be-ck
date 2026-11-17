@@ -164,10 +164,10 @@ export default function AdminUsers() {
   const hasActiveFilters = Boolean(search || roleFilter !== "ALL" || sortBy !== "created_at" || sortOrder !== "DESC");
 
   const statCards = [
-    { label: "Tổng người dùng", value: counts.ALL, icon: Users, color: "#60a5fa" },
+    { label: "Tổng người dùng", value: counts.ALL, icon: Users, color: "#2563eb" },
     { label: "Quản trị viên (Admin)", value: counts.ADMIN, icon: Shield, color: ROLE_THEME.ADMIN.color },
     { label: "Giảng viên (Mentor)", value: counts.MENTOR, icon: BadgeCheck, color: ROLE_THEME.MENTOR.color },
-    { label: "Học viên (Member)", value: counts.MEMBER, icon: GraduationCap, color: "#34d399" },
+    { label: "Học viên (Member)", value: counts.MEMBER, icon: GraduationCap, color: ROLE_THEME.MEMBER.color },
   ];
 
   return (
@@ -227,7 +227,7 @@ export default function AdminUsers() {
                 className="au-tab"
                 style={{ ...styles.tab, ...(active ? styles.tabActive : {}) }}
               >
-                {r !== "ALL" && <span style={{ ...styles.dot, backgroundColor: ROLE_THEME[r]?.color || "#a1a1aa" }} />}
+                {r !== "ALL" && <span style={{ ...styles.dot, backgroundColor: ROLE_THEME[r]?.color || "#64748b" }} />}
                 {r === "ALL" ? "Tất cả" : r} ({counts[r]})
               </button>
             );
@@ -254,12 +254,12 @@ export default function AdminUsers() {
 
           {/* Sorting */}
           <div style={{ position: "relative" }}>
-            <ArrowUpDown size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#71717a", pointerEvents: "none" }} />
+            <ArrowUpDown size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#94a3b8", pointerEvents: "none" }} />
             <select
               value={`${sortBy}:${sortOrder}`}
               onChange={handleSortChange}
               className="au-input"
-              style={{ ...styles.input, height: 38, paddingLeft: 32, paddingRight: 12, width: 200, backgroundColor: "#0f0f12", cursor: "pointer", appearance: "none" }}
+              style={{ ...styles.input, height: 38, paddingLeft: 32, paddingRight: 12, width: 200, backgroundColor: "#f8fafc", cursor: "pointer", appearance: "none" }}
             >
               <option value="created_at:DESC">Mới nhất</option>
               <option value="created_at:ASC">Cũ nhất</option>
@@ -319,13 +319,13 @@ export default function AdminUsers() {
                           <span className="au-name" style={styles.name}>{displayName(u)}</span>
                         </div>
                       </td>
-                      <td style={{ ...styles.td, color: "#a1a1aa" }}>{u.email}</td>
+                      <td style={{ ...styles.td, color: "#64748b" }}>{u.email}</td>
                       <td style={styles.td}>
                         <span style={{ ...styles.badge, color: theme.color, backgroundColor: theme.bg, borderColor: theme.border }}>
                           <RoleIcon size={12} /> {u.role}
                         </span>
                       </td>
-                      <td style={{ ...styles.td, color: "#a1a1aa" }}>{formatDate(u.created_at)}</td>
+                      <td style={{ ...styles.td, color: "#64748b" }}>{formatDate(u.created_at)}</td>
                       <td style={{ ...styles.td, paddingRight: 24 }}>
                         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", alignItems: "center" }}>
                           {u.role === "MEMBER" && (
@@ -358,8 +358,8 @@ export default function AdminUsers() {
         {/* Pagination Footer */}
         <div style={styles.tableFooter}>
           <span>
-            Hiển thị <strong style={{ color: "#f4f4f5" }}>{users.length}</strong> trong số{" "}
-            <strong style={{ color: "#f4f4f5" }}>{total}</strong> người dùng
+            Hiển thị <strong style={{ color: "#0f172a" }}>{users.length}</strong> trong số{" "}
+            <strong style={{ color: "#0f172a" }}>{total}</strong> người dùng
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <button
@@ -370,8 +370,8 @@ export default function AdminUsers() {
             >
               <ChevronLeft size={16} /> Trước
             </button>
-            <span style={{ fontSize: 13, color: "#a1a1aa" }}>
-              Trang <span style={{ color: "#f4f4f5", fontWeight: 700 }}>{page}</span> / {Math.max(1, totalPages)}
+            <span style={{ fontSize: 13, color: "#64748b" }}>
+              Trang <span style={{ color: "#0f172a", fontWeight: 700 }}>{page}</span> / {Math.max(1, totalPages)}
             </span>
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
@@ -475,7 +475,7 @@ export default function AdminUsers() {
                 <div style={{ ...styles.avatar, ...ROLE_AVATAR_MEMBER }}>{getInitials(displayName(selectedUser))}</div>
                 <div style={{ minWidth: 0 }}>
                   <div style={styles.name}>{displayName(selectedUser)}</div>
-                  <div style={{ fontSize: 12, color: "#a1a1aa" }}>{selectedUser.email}</div>
+                  <div style={{ fontSize: 12, color: "#64748b" }}>{selectedUser.email}</div>
                 </div>
               </div>
               <Field label="Chọn Lớp Học" icon={School}>
@@ -528,7 +528,7 @@ function Field({ label, icon: Icon, children }) {
   return (
     <div style={styles.field}>
       <label style={styles.label}>
-        {label} <span style={{ color: "#f87171" }}>*</span>
+        {label} <span style={{ color: "#dc2626" }}>*</span>
       </label>
       <div style={{ position: "relative" }}>
         <Icon size={16} style={styles.fieldIcon} />
@@ -552,104 +552,104 @@ const getInitials = (name) =>
 const formatDate = (value) => (value ? new Date(value).toLocaleDateString("vi-VN") : "—");
 
 const ROLE_THEME = {
-  ADMIN: { color: "#a78bfa", bg: "rgba(124,58,237,0.15)", border: "rgba(167,139,250,0.3)", icon: Shield },
-  MENTOR: { color: "#fbbf24", bg: "rgba(245,158,11,0.12)", border: "rgba(251,191,36,0.3)", icon: BadgeCheck },
-  MEMBER: { color: "#a1a1aa", bg: "#27272a", border: "#3f3f46", icon: User },
+  ADMIN: { color: "#c2410c", bg: "#fff7ed", border: "#fed7aa", icon: Shield },
+  MENTOR: { color: "#7c3aed", bg: "#f5f3ff", border: "#ddd6fe", icon: BadgeCheck },
+  MEMBER: { color: "#2563eb", bg: "#eff6ff", border: "#bfdbfe", icon: User },
 };
 
 const ROLE_AVATAR_MEMBER = { color: ROLE_THEME.MEMBER.color, backgroundColor: ROLE_THEME.MEMBER.bg, borderColor: ROLE_THEME.MEMBER.border };
 
 const css = `
   .au-card { transition: border-color .15s, transform .15s; }
-  .au-card:hover { border-color: #3f3f46 !important; transform: translateY(-1px); }
+  .au-card:hover { border-color: #cbd5e1 !important; transform: translateY(-1px); }
   .au-row { transition: background-color .1s; }
-  .au-row:hover { background-color: rgba(39,39,42,0.5); }
-  .au-row:hover .au-name { color: #60a5fa; }
-  .au-tab:hover { color: #f4f4f5 !important; }
+  .au-row:hover { background-color: #e2e8f0; }
+  .au-row:hover .au-name { color: #2563eb; }
+  .au-tab:hover { color: #0f172a !important; }
   .au-input:focus { border-color: #3b82f6 !important; box-shadow: 0 0 0 1px #3b82f6; }
-  .au-input::placeholder { color: #71717a; }
+  .au-input::placeholder { color: #94a3b8; }
   .au-btn-primary { transition: background-color .15s, transform .1s; }
   .au-btn-primary:hover { background-color: #3b82f6 !important; }
   .au-btn-primary:active, .au-btn-assign:active { transform: scale(0.97); }
-  .au-btn-secondary:hover { background-color: #3f3f46 !important; }
+  .au-btn-secondary:hover { background-color: #cbd5e1 !important; }
   .au-btn-assign:hover { background-color: rgba(16,185,129,0.22) !important; }
-  .au-btn-delete:hover { color: #f87171 !important; background-color: rgba(239,68,68,0.12) !important; }
-  .au-btn-ghost:hover { color: #f4f4f5 !important; background-color: #27272a !important; }
+  .au-btn-delete:hover { color: #dc2626 !important; background-color: rgba(239,68,68,0.12) !important; }
+  .au-btn-ghost:hover { color: #0f172a !important; background-color: #e2e8f0 !important; }
   .au-btn-page { transition: background-color .15s, color .15s, border-color .15s; }
-  .au-btn-page:hover:not(:disabled) { background-color: #27272a !important; border-color: #3f3f46 !important; color: #f4f4f5 !important; }
+  .au-btn-page:hover:not(:disabled) { background-color: #e2e8f0 !important; border-color: #cbd5e1 !important; color: #0f172a !important; }
   .au-modal { animation: au-pop .18s ease-out; }
   @keyframes au-pop { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
-  .au-spinner { width: 28px; height: 28px; margin: 0 auto 12px; border: 3px solid #27272a; border-top-color: #3b82f6; border-radius: 50%; animation: au-spin .8s linear infinite; }
+  .au-spinner { width: 28px; height: 28px; margin: 0 auto 12px; border: 3px solid #e2e8f0; border-top-color: #3b82f6; border-radius: 50%; animation: au-spin .8s linear infinite; }
   @keyframes au-spin { to { transform: rotate(360deg); } }
 `;
 
 const styles = {
   page: { fontFamily: "Inter, system-ui, sans-serif" },
-  center: { textAlign: "center", padding: 60, color: "#a1a1aa", fontSize: 14 },
+  center: { textAlign: "center", padding: 60, color: "#64748b", fontSize: 14 },
 
-  pageHeader: { display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 16, paddingBottom: 24, borderBottom: "1px solid #27272a" },
-  headerIcon: { display: "flex", padding: 10, borderRadius: 12, backgroundColor: "#27272a", border: "1px solid #3f3f46", color: "#60a5fa" },
-  title: { display: "flex", alignItems: "center", gap: 8, margin: 0, color: "#f4f4f5", fontSize: 24, fontWeight: 600, letterSpacing: "-0.02em" },
-  titleTag: { fontSize: 11, fontWeight: 500, padding: "2px 8px", borderRadius: 999, backgroundColor: "#27272a", color: "#a1a1aa", border: "1px solid #3f3f46" },
-  subtitle: { margin: "4px 0 0", color: "#a1a1aa", fontSize: 13 },
+  pageHeader: { display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 16, paddingBottom: 24, borderBottom: "1px solid #e2e8f0" },
+  headerIcon: { display: "flex", padding: 10, borderRadius: 12, backgroundColor: "#e2e8f0", border: "1px solid #cbd5e1", color: "#2563eb" },
+  title: { display: "flex", alignItems: "center", gap: 8, margin: 0, color: "#0f172a", fontSize: 24, fontWeight: 600, letterSpacing: "-0.02em" },
+  titleTag: { fontSize: 11, fontWeight: 500, padding: "2px 8px", borderRadius: 999, backgroundColor: "#e2e8f0", color: "#64748b", border: "1px solid #cbd5e1" },
+  subtitle: { margin: "4px 0 0", color: "#64748b", fontSize: 13 },
   createBtn: { display: "inline-flex", alignItems: "center", gap: 6, backgroundColor: "#2563eb", color: "#fff", border: "none", padding: "9px 16px", borderRadius: 8, cursor: "pointer", fontWeight: 600, fontSize: 13, boxShadow: "0 8px 20px rgba(37,99,235,0.25)" },
 
   statGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginTop: 24 },
-  statCard: { backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: 12, padding: 20 },
+  statCard: { backgroundColor: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 12, padding: 20 },
   statTop: { display: "flex", justifyContent: "space-between", alignItems: "center" },
-  statLabel: { fontSize: 13, fontWeight: 500, color: "#a1a1aa" },
+  statLabel: { fontSize: 13, fontWeight: 500, color: "#64748b" },
   statIcon: { width: 32, height: 32, borderRadius: 8, border: "1px solid", display: "flex", alignItems: "center", justifyContent: "center" },
-  statValue: { marginTop: 12, fontSize: 30, fontWeight: 600, color: "#f4f4f5", letterSpacing: "-0.025em" },
-  progressTrack: { marginTop: 12, height: 4, borderRadius: 999, backgroundColor: "#27272a", overflow: "hidden" },
+  statValue: { marginTop: 12, fontSize: 30, fontWeight: 600, color: "#0f172a", letterSpacing: "-0.025em" },
+  progressTrack: { marginTop: 12, height: 4, borderRadius: 999, backgroundColor: "#e2e8f0", overflow: "hidden" },
   progressBar: { height: "100%", borderRadius: 999, transition: "width .3s" },
 
   toolbar: { display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12, marginTop: 32 },
-  tabs: { display: "flex", gap: 4, padding: 4, backgroundColor: "#0f0f12", border: "1px solid #27272a", borderRadius: 12, overflowX: "auto" },
-  tab: { display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8, border: "1px solid transparent", backgroundColor: "transparent", color: "#a1a1aa", fontSize: 13, fontWeight: 500, cursor: "pointer", whiteSpace: "nowrap" },
-  tabActive: { backgroundColor: "#27272a", borderColor: "#3f3f46", color: "#60a5fa" },
+  tabs: { display: "flex", gap: 4, padding: 4, backgroundColor: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, overflowX: "auto" },
+  tab: { display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8, border: "1px solid transparent", backgroundColor: "transparent", color: "#64748b", fontSize: 13, fontWeight: 500, cursor: "pointer", whiteSpace: "nowrap" },
+  tabActive: { backgroundColor: "#e2e8f0", borderColor: "#cbd5e1", color: "#2563eb" },
   dot: { width: 8, height: 8, borderRadius: "50%" },
   searchWrap: { position: "relative", flex: "1 1 260px", maxWidth: 320 },
-  searchIcon: { position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#71717a", pointerEvents: "none" },
-  searchInput: { height: 38, paddingLeft: 36, paddingRight: 34, backgroundColor: "#0f0f12" },
-  clearBtn: { position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "#71717a", cursor: "pointer", display: "flex", alignItems: "center", padding: 4, borderRadius: 4 },
-  resetBtn: { display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 8, fontSize: 12, color: "#a1a1aa", border: "1px solid #27272a", backgroundColor: "transparent", cursor: "pointer" },
+  searchIcon: { position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#94a3b8", pointerEvents: "none" },
+  searchInput: { height: 38, paddingLeft: 36, paddingRight: 34, backgroundColor: "#f8fafc" },
+  clearBtn: { position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "#94a3b8", cursor: "pointer", display: "flex", alignItems: "center", padding: 4, borderRadius: 4 },
+  resetBtn: { display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 8, fontSize: 12, color: "#64748b", border: "1px solid #e2e8f0", backgroundColor: "transparent", cursor: "pointer" },
 
-  tableWrapper: { marginTop: 16, backgroundColor: "#18181b", borderRadius: 12, border: "1px solid #27272a", overflow: "hidden" },
+  tableWrapper: { marginTop: 16, backgroundColor: "#ffffff", borderRadius: 12, border: "1px solid #e2e8f0", overflow: "hidden" },
   table: { width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: 13 },
-  thRow: { borderBottom: "1px solid #27272a", backgroundColor: "#141417" },
-  th: { padding: "13px 16px", color: "#71717a", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", whiteSpace: "nowrap" },
-  tr: { borderBottom: "1px solid #232326" },
-  td: { padding: "14px 16px", color: "#d4d4d8", whiteSpace: "nowrap" },
+  thRow: { borderBottom: "1px solid #e2e8f0", backgroundColor: "#f8fafc" },
+  th: { padding: "13px 16px", color: "#94a3b8", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", whiteSpace: "nowrap" },
+  tr: { borderBottom: "1px solid #eef2f7" },
+  td: { padding: "14px 16px", color: "#334155", whiteSpace: "nowrap" },
   avatar: { width: 32, height: 32, flexShrink: 0, borderRadius: "50%", border: "1px solid", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 600 },
-  name: { color: "#f4f4f5", fontWeight: 500, transition: "color .15s" },
+  name: { color: "#0f172a", fontWeight: 500, transition: "color .15s" },
   badge: { display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 999, border: "1px solid", fontSize: 11, fontWeight: 600, letterSpacing: "0.02em" },
-  assignBtn: { display: "inline-flex", alignItems: "center", gap: 5, backgroundColor: "rgba(16,185,129,0.12)", color: "#34d399", border: "1px solid rgba(52,211,153,0.3)", padding: "5px 10px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 500 },
-  deleteBtn: { display: "inline-flex", alignItems: "center", backgroundColor: "transparent", color: "#71717a", border: "none", padding: 6, borderRadius: 8, cursor: "pointer" },
-  empty: { padding: 48, textAlign: "center", color: "#71717a" },
-  tableFooter: { display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "12px 24px", borderTop: "1px solid #27272a", backgroundColor: "#141417", color: "#a1a1aa", fontSize: 12 },
-  pageBtn: { display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 8, border: "1px solid #27272a", backgroundColor: "#18181b", color: "#f4f4f5", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" },
+  assignBtn: { display: "inline-flex", alignItems: "center", gap: 5, backgroundColor: "rgba(16,185,129,0.12)", color: "#059669", border: "1px solid rgba(52,211,153,0.3)", padding: "5px 10px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 500 },
+  deleteBtn: { display: "inline-flex", alignItems: "center", backgroundColor: "transparent", color: "#94a3b8", border: "none", padding: 6, borderRadius: 8, cursor: "pointer" },
+  empty: { padding: 48, textAlign: "center", color: "#94a3b8" },
+  tableFooter: { display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "12px 24px", borderTop: "1px solid #e2e8f0", backgroundColor: "#f8fafc", color: "#64748b", fontSize: 12 },
+  pageBtn: { display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 8, border: "1px solid #e2e8f0", backgroundColor: "#ffffff", color: "#0f172a", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" },
   pageBtnDisabled: { opacity: 0.35, cursor: "not-allowed" },
 
-  modalOverlay: { position: "fixed", inset: 0, backgroundColor: "rgba(9,9,11,0.8)", backdropFilter: "blur(4px)", display: "flex", justifyContent: "center", alignItems: "center", padding: 16, zIndex: 1000 },
-  modalContent: { backgroundColor: "#18181b", border: "1px solid #3f3f46", borderRadius: 16, width: "100%", maxWidth: 480, color: "#f4f4f5", overflow: "hidden", boxShadow: "0 25px 50px rgba(0,0,0,0.6)" },
-  modalHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 24px", borderBottom: "1px solid #27272a", backgroundColor: "#141417" },
-  modalIcon: { width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", color: "#60a5fa", backgroundColor: "rgba(59,130,246,0.15)", border: "1px solid rgba(96,165,250,0.3)" },
+  modalOverlay: { position: "fixed", inset: 0, backgroundColor: "rgba(15,23,42,0.45)", backdropFilter: "blur(4px)", display: "flex", justifyContent: "center", alignItems: "center", padding: 16, zIndex: 1000 },
+  modalContent: { backgroundColor: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 16, width: "100%", maxWidth: 480, color: "#0f172a", overflow: "hidden", boxShadow: "0 25px 50px rgba(15,23,42,0.14)" },
+  modalHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 24px", borderBottom: "1px solid #e2e8f0", backgroundColor: "#f8fafc" },
+  modalIcon: { width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", color: "#2563eb", backgroundColor: "rgba(59,130,246,0.15)", border: "1px solid rgba(96,165,250,0.3)" },
   modalTitle: { margin: 0, fontSize: 15, fontWeight: 600 },
-  modalSubtitle: { margin: "2px 0 0", fontSize: 12, color: "#a1a1aa" },
-  closeBtn: { display: "flex", padding: 6, border: "none", borderRadius: 8, backgroundColor: "transparent", color: "#71717a", cursor: "pointer" },
+  modalSubtitle: { margin: "2px 0 0", fontSize: 12, color: "#64748b" },
+  closeBtn: { display: "flex", padding: 6, border: "none", borderRadius: 8, backgroundColor: "transparent", color: "#94a3b8", cursor: "pointer" },
   modalBody: { padding: 24 },
-  modalFooter: { display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 24, paddingTop: 16, borderTop: "1px solid #27272a" },
-  userPreview: { display: "flex", alignItems: "center", gap: 12, padding: 12, marginBottom: 16, borderRadius: 10, backgroundColor: "#0f0f12", border: "1px solid #27272a" },
+  modalFooter: { display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 24, paddingTop: 16, borderTop: "1px solid #e2e8f0" },
+  userPreview: { display: "flex", alignItems: "center", gap: 12, padding: 12, marginBottom: 16, borderRadius: 10, backgroundColor: "#f8fafc", border: "1px solid #e2e8f0" },
 
   field: { display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 },
-  label: { fontSize: 13, fontWeight: 500, color: "#f4f4f5" },
-  fieldIcon: { position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#71717a", pointerEvents: "none" },
-  input: { width: "100%", boxSizing: "border-box", height: 40, padding: "0 12px", borderRadius: 8, border: "1px solid #3f3f46", backgroundColor: "#27272a", color: "#f4f4f5", fontSize: 13, outline: "none", transition: "border-color .15s, box-shadow .15s" },
+  label: { fontSize: 13, fontWeight: 500, color: "#0f172a" },
+  fieldIcon: { position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#94a3b8", pointerEvents: "none" },
+  input: { width: "100%", boxSizing: "border-box", height: 40, padding: "0 12px", borderRadius: 8, border: "1px solid #cbd5e1", backgroundColor: "#e2e8f0", color: "#0f172a", fontSize: 13, outline: "none", transition: "border-color .15s, box-shadow .15s" },
   inputWithIcon: { paddingLeft: 36 },
   select: { appearance: "none", paddingRight: 36, cursor: "pointer" },
-  selectArrow: { position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", color: "#71717a", pointerEvents: "none" },
-  eyeBtn: { position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", display: "flex", padding: 4, border: "none", backgroundColor: "transparent", color: "#71717a", cursor: "pointer" },
+  selectArrow: { position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", color: "#94a3b8", pointerEvents: "none" },
+  eyeBtn: { position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", display: "flex", padding: 4, border: "none", backgroundColor: "transparent", color: "#94a3b8", cursor: "pointer" },
 
   saveBtn: { display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 16px", backgroundColor: "#2563eb", color: "#fff", border: "none", borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: "pointer", boxShadow: "0 8px 20px rgba(37,99,235,0.2)" },
-  cancelBtn: { padding: "9px 16px", backgroundColor: "#27272a", color: "#f4f4f5", border: "1px solid #3f3f46", borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: "pointer" },
+  cancelBtn: { padding: "9px 16px", backgroundColor: "#e2e8f0", color: "#0f172a", border: "1px solid #cbd5e1", borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: "pointer" },
 };

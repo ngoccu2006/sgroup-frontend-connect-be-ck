@@ -114,7 +114,7 @@ export default function ClassFormModal({ initial, mentors: mentorsProp, onSaved,
                       value={form.mentor_id}
                       onChange={set("mentor_id")}
                       className="cf-input"
-                      style={{ ...styles.input, paddingLeft: 36, paddingRight: 36, appearance: "none", colorScheme: "dark", cursor: "pointer" }}
+                      style={{ ...styles.input, paddingLeft: 36, paddingRight: 36, appearance: "none", colorScheme: "light", cursor: "pointer" }}
                     >
                       <option value="">— Chọn mentor —</option>
                       {currentMentorMissing && <option value={form.mentor_id}>Mentor hiện tại (không còn role MENTOR)</option>}
@@ -141,11 +141,11 @@ export default function ClassFormModal({ initial, mentors: mentorsProp, onSaved,
             <div style={styles.row}>
               <div style={{ ...styles.field, flex: "1 1 160px" }}>
                 <label style={styles.label}>Ngày bắt đầu</label>
-                <input type="date" value={form.start_date} onChange={set("start_date")} className="cf-input" style={{ ...styles.input, colorScheme: "dark" }} />
+                <input type="date" value={form.start_date} onChange={set("start_date")} className="cf-input" style={{ ...styles.input, colorScheme: "light" }} />
               </div>
               <div style={{ ...styles.field, flex: "1 1 160px" }}>
                 <label style={styles.label}>Ngày kết thúc</label>
-                <input type="date" min={form.start_date || undefined} value={form.end_date} onChange={set("end_date")} className="cf-input" style={{ ...styles.input, colorScheme: "dark" }} />
+                <input type="date" min={form.start_date || undefined} value={form.end_date} onChange={set("end_date")} className="cf-input" style={{ ...styles.input, colorScheme: "light" }} />
               </div>
             </div>
 
@@ -188,8 +188,8 @@ const css = `
   .cf-modal { animation: cf-pop .18s ease-out; }
   @keyframes cf-pop { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
   .cf-input:focus { border-color: #3b82f6 !important; box-shadow: 0 0 0 1px #3b82f6; }
-  .cf-input::placeholder { color: #71717a; }
-  .cf-ghost:hover { color: #f4f4f5 !important; background-color: #27272a !important; }
+  .cf-input::placeholder { color: #94a3b8; }
+  .cf-ghost:hover { color: #0f172a !important; background-color: #e2e8f0 !important; }
   .cf-primary { transition: background-color .15s, transform .1s; }
   .cf-primary:hover:not(:disabled) { background-color: #3b82f6 !important; }
   .cf-primary:active:not(:disabled) { transform: scale(0.98); }
@@ -198,24 +198,24 @@ const css = `
 `;
 
 const styles = {
-  overlay: { position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)", display: "flex", justifyContent: "center", alignItems: "center", padding: 16, zIndex: 1000, fontFamily: "Inter, system-ui, sans-serif" },
-  modal: { width: "100%", maxWidth: 540, maxHeight: "92vh", overflowY: "auto", backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: 16, color: "#f4f4f5", boxShadow: "0 25px 50px rgba(0,0,0,0.7)" },
-  header: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 24px", borderBottom: "1px solid #27272a", backgroundColor: "#1b1b1e" },
-  headerIcon: { width: 40, height: 40, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", color: "#60a5fa", backgroundColor: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)" },
+  overlay: { position: "fixed", inset: 0, backgroundColor: "rgba(15,23,42,0.45)", backdropFilter: "blur(4px)", display: "flex", justifyContent: "center", alignItems: "center", padding: 16, zIndex: 1000, fontFamily: "Inter, system-ui, sans-serif" },
+  modal: { width: "100%", maxWidth: 540, maxHeight: "92vh", overflowY: "auto", backgroundColor: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 16, color: "#0f172a", boxShadow: "0 25px 50px rgba(15,23,42,0.18)" },
+  header: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 24px", borderBottom: "1px solid #e2e8f0", backgroundColor: "#f8fafc" },
+  headerIcon: { width: 40, height: 40, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", color: "#2563eb", backgroundColor: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)" },
   title: { margin: 0, fontSize: 16, fontWeight: 700, letterSpacing: "-0.01em" },
-  subtitle: { margin: "2px 0 0", fontSize: 12, color: "#a1a1aa" },
-  closeBtn: { display: "flex", padding: 6, border: "none", borderRadius: 8, backgroundColor: "transparent", color: "#a1a1aa", cursor: "pointer" },
+  subtitle: { margin: "2px 0 0", fontSize: 12, color: "#64748b" },
+  closeBtn: { display: "flex", padding: 6, border: "none", borderRadius: 8, backgroundColor: "transparent", color: "#64748b", cursor: "pointer" },
   body: { padding: 24 },
-  footer: { display: "flex", justifyContent: "flex-end", gap: 12, padding: "14px 24px", borderTop: "1px solid #27272a", backgroundColor: "#141416" },
-  error: { display: "flex", alignItems: "center", gap: 8, padding: 12, marginBottom: 16, borderRadius: 10, fontSize: 13, color: "#fda4af", backgroundColor: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.25)" },
+  footer: { display: "flex", justifyContent: "flex-end", gap: 12, padding: "14px 24px", borderTop: "1px solid #e2e8f0", backgroundColor: "#f8fafc" },
+  error: { display: "flex", alignItems: "center", gap: 8, padding: 12, marginBottom: 16, borderRadius: 10, fontSize: 13, color: "#be123c", backgroundColor: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.25)" },
   field: { display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 },
   row: { display: "flex", flexWrap: "wrap", gap: 12 },
-  label: { fontSize: 12, fontWeight: 600, color: "#f4f4f5" },
+  label: { fontSize: 12, fontWeight: 600, color: "#0f172a" },
   req: { color: "#f43f5e" },
-  hint: { fontSize: 11, color: "#71717a" },
-  icon: { position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#71717a", pointerEvents: "none" },
-  input: { width: "100%", boxSizing: "border-box", padding: "10px 14px", borderRadius: 10, border: "1px solid #27272a", backgroundColor: "#09090b", color: "#f4f4f5", fontSize: 13, outline: "none", fontFamily: "inherit", transition: "border-color .15s, box-shadow .15s" },
-  selfMentor: { display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 10, fontSize: 13, color: "#6ee7b7", backgroundColor: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)" },
-  cancelBtn: { padding: "9px 16px", backgroundColor: "transparent", color: "#a1a1aa", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: "pointer" },
+  hint: { fontSize: 11, color: "#94a3b8" },
+  icon: { position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#94a3b8", pointerEvents: "none" },
+  input: { width: "100%", boxSizing: "border-box", padding: "10px 14px", borderRadius: 10, border: "1px solid #e2e8f0", backgroundColor: "#ffffff", color: "#0f172a", fontSize: 13, outline: "none", fontFamily: "inherit", transition: "border-color .15s, box-shadow .15s" },
+  selfMentor: { display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 10, fontSize: 13, color: "#047857", backgroundColor: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)" },
+  cancelBtn: { padding: "9px 16px", backgroundColor: "transparent", color: "#64748b", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: "pointer" },
   saveBtn: { display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 18px", backgroundColor: "#2563eb", color: "#fff", border: "none", borderRadius: 10, fontWeight: 600, fontSize: 13, cursor: "pointer", boxShadow: "0 8px 20px rgba(37,99,235,0.3)" },
 };

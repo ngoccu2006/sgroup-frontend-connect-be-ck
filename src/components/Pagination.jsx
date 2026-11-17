@@ -120,23 +120,23 @@ function pageList(page, total, spread) {
 
 const css = `
   .pg-btn { transition: background-color .15s, border-color .15s, color .15s; }
-  .pg-btn:hover:not(:disabled):not(.pg-btn-active) { background-color: #27272a !important; color: #f4f4f5 !important; }
+  .pg-btn:hover:not(:disabled):not(.pg-btn-active) { background-color: #e2e8f0 !important; color: #0f172a !important; }
   .pg-btn:disabled { opacity: .35; cursor: not-allowed !important; }
   .pg-select:focus { border-color: #3b82f6 !important; outline: none; }
 `;
 
 const styles = {
-  bar: { display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12, marginTop: 20, fontSize: 12, color: "#a1a1aa" },
-  barCompact: { marginTop: 4, paddingTop: 12, borderTop: "1px solid #27272a" },
+  bar: { display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12, marginTop: 20, fontSize: 12, color: "#64748b" },
+  barCompact: { marginTop: 4, paddingTop: 12, borderTop: "1px solid #e2e8f0" },
   info: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 16 },
-  strong: { color: "#f4f4f5", fontWeight: 600 },
+  strong: { color: "#0f172a", fontWeight: 600 },
   limitLabel: { display: "inline-flex", alignItems: "center", gap: 6 },
-  select: { padding: "4px 6px", borderRadius: 6, border: "1px solid #27272a", backgroundColor: "#18181b", color: "#f4f4f5", fontSize: 12, cursor: "pointer", colorScheme: "dark" },
+  select: { padding: "4px 6px", borderRadius: 6, border: "1px solid #e2e8f0", backgroundColor: "#ffffff", color: "#0f172a", fontSize: 12, cursor: "pointer", colorScheme: "light" },
   pages: { display: "flex", alignItems: "center", gap: 4 },
-  btn: { minWidth: 30, height: 30, padding: "0 8px", display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 8, border: "1px solid #27272a", backgroundColor: "#18181b", color: "#a1a1aa", fontSize: 12, fontWeight: 500, cursor: "pointer" },
+  btn: { minWidth: 30, height: 30, padding: "0 8px", display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 8, border: "1px solid #e2e8f0", backgroundColor: "#ffffff", color: "#64748b", fontSize: 12, fontWeight: 500, cursor: "pointer" },
   btnActive: { backgroundColor: "#2563eb", borderColor: "#2563eb", color: "#fff", fontWeight: 600, cursor: "default" },
-  gap: { padding: "0 4px", color: "#71717a" },
-  sortWrap: { display: "inline-flex", alignItems: "center", gap: 6, height: 38, padding: "0 4px 0 10px", borderRadius: 10, border: "1px solid #27272a", backgroundColor: "#18181b", color: "#71717a" },
-  sortSelect: { height: "100%", border: "none", backgroundColor: "transparent", color: "#f4f4f5", fontSize: 13, cursor: "pointer", colorScheme: "dark", outline: "none" },
+  gap: { padding: "0 4px", color: "#94a3b8" },
+  sortWrap: { display: "inline-flex", alignItems: "center", gap: 6, height: 38, padding: "0 4px 0 10px", borderRadius: 10, border: "1px solid #e2e8f0", backgroundColor: "#ffffff", color: "#94a3b8" },
+  sortSelect: { height: "100%", border: "none", backgroundColor: "transparent", color: "#0f172a", fontSize: 13, cursor: "pointer", colorScheme: "light", outline: "none" },
 };
 

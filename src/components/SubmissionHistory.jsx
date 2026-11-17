@@ -60,13 +60,13 @@ export function SubmissionTimeline({ submissionId, maxScore, reloadKey = 0, onLo
 
 function VersionItem({ v, maxScore, last }) {
   const graded = v.score !== null && v.score !== undefined;
-  const accent = v._current ? "#3b82f6" : "#52525b";
+  const accent = v._current ? "#3b82f6" : "#94a3b8";
 
   return (
     <div style={styles.item}>
       {/* Trục timeline */}
       <div style={styles.rail}>
-        <div style={{ ...styles.node, borderColor: accent, color: v._current ? "#fff" : "#a1a1aa", backgroundColor: v._current ? accent : "#18181b" }}>
+        <div style={{ ...styles.node, borderColor: accent, color: v._current ? "#fff" : "#64748b", backgroundColor: v._current ? accent : "#ffffff" }}>
           v{v.version ?? "?"}
         </div>
         {!last && <div style={styles.line} />}
@@ -75,7 +75,7 @@ function VersionItem({ v, maxScore, last }) {
       <div style={{ ...styles.card, ...(v._current ? styles.cardCurrent : {}) }}>
         <div style={styles.cardTop}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <strong style={{ fontSize: 13, color: "#f4f4f5" }}>Lần nộp thứ {v.version ?? "?"}</strong>
+            <strong style={{ fontSize: 13, color: "#0f172a" }}>Lần nộp thứ {v.version ?? "?"}</strong>
             {v._current ? (
               <span style={{ ...styles.tag, ...styles.tagCurrent }}>Hiện tại</span>
             ) : (
@@ -99,13 +99,13 @@ function VersionItem({ v, maxScore, last }) {
         {(v.repository_url || v.file_url) && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {v.repository_url && (
-              <a href={v.repository_url} target="_blank" rel="noreferrer" className="sh-chip" style={{ ...styles.chip, color: "#60a5fa" }}>
+              <a href={v.repository_url} target="_blank" rel="noreferrer" className="sh-chip" style={{ ...styles.chip, color: "#2563eb" }}>
                 <Code2 size={13} /> Repository <ExternalLink size={11} />
               </a>
             )}
             {v.file_url && (
               <a href={v.file_url} target="_blank" rel="noreferrer" className="sh-chip" style={styles.chip}>
-                <FileArchive size={13} color="#34d399" /> File đính kèm <ExternalLink size={11} />
+                <FileArchive size={13} color="#059669" /> File đính kèm <ExternalLink size={11} />
               </a>
             )}
           </div>
@@ -113,7 +113,7 @@ function VersionItem({ v, maxScore, last }) {
 
         {v.feedback && (
           <div style={styles.feedback}>
-            <MessageSquareQuote size={13} style={{ flexShrink: 0, marginTop: 2, color: "#71717a" }} />
+            <MessageSquareQuote size={13} style={{ flexShrink: 0, marginTop: 2, color: "#94a3b8" }} />
             <span>{v.feedback}</span>
           </div>
         )}
@@ -134,7 +134,7 @@ export function SubmissionHistoryModal({ submission, maxScore, onClose }) {
             <div style={styles.modalIcon}><History size={20} /></div>
             <div style={{ minWidth: 0 }}>
               <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Lịch sử nộp bài</h3>
-              <p style={{ margin: "2px 0 0", fontSize: 12, color: "#a1a1aa" }}>
+              <p style={{ margin: "2px 0 0", fontSize: 12, color: "#64748b" }}>
                 {submission.member_name || "Học viên"}{submission.member_email ? ` · ${submission.member_email}` : ""}
               </p>
             </div>
@@ -153,39 +153,39 @@ const fmtDate = (d) => (d ? new Date(d).toLocaleString("vi-VN") : "—");
 const fmtScore = (s) => (Number.isInteger(Number(s)) ? Number(s) : Number(s).toFixed(1));
 
 const css = `
-  .sh-spinner { width: 16px; height: 16px; border: 2px solid #27272a; border-top-color: #3b82f6; border-radius: 50%; animation: sh-spin .8s linear infinite; }
+  .sh-spinner { width: 16px; height: 16px; border: 2px solid #e2e8f0; border-top-color: #3b82f6; border-radius: 50%; animation: sh-spin .8s linear infinite; }
   @keyframes sh-spin { to { transform: rotate(360deg); } }
   .sh-chip { transition: border-color .15s; }
   .sh-chip:hover { border-color: rgba(59,130,246,0.5) !important; }
-  .sh-ghost:hover { color: #f4f4f5 !important; background-color: #27272a !important; }
+  .sh-ghost:hover { color: #0f172a !important; background-color: #e2e8f0 !important; }
   .sh-modal { animation: sh-pop .18s ease-out; }
   @keyframes sh-pop { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
 `;
 
 const styles = {
-  center: { display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: 24, color: "#a1a1aa", fontSize: 13 },
-  error: { padding: 12, borderRadius: 8, fontSize: 13, color: "#fda4af", backgroundColor: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.25)" },
+  center: { display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: 24, color: "#64748b", fontSize: 13 },
+  error: { padding: 12, borderRadius: 8, fontSize: 13, color: "#be123c", backgroundColor: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.25)" },
   timeline: { display: "flex", flexDirection: "column" },
   item: { display: "flex", gap: 14 },
   rail: { display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 },
   node: { width: 34, height: 34, borderRadius: "50%", border: "2px solid", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700 },
-  line: { flex: 1, width: 2, minHeight: 16, backgroundColor: "#27272a", margin: "4px 0" },
-  card: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 10, padding: 14, marginBottom: 14, borderRadius: 10, backgroundColor: "#121215", border: "1px solid #27272a" },
+  line: { flex: 1, width: 2, minHeight: 16, backgroundColor: "#e2e8f0", margin: "4px 0" },
+  card: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 10, padding: 14, marginBottom: 14, borderRadius: 10, backgroundColor: "#f8fafc", border: "1px solid #e2e8f0" },
   cardCurrent: { borderColor: "rgba(59,130,246,0.45)", backgroundColor: "rgba(59,130,246,0.06)" },
   cardTop: { display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 8 },
-  tag: { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 600, color: "#a1a1aa", backgroundColor: "#202024", border: "1px solid #27272a" },
-  tagCurrent: { color: "#93c5fd", backgroundColor: "rgba(59,130,246,0.15)", borderColor: "rgba(59,130,246,0.35)" },
-  tagGraded: { color: "#34d399", backgroundColor: "rgba(16,185,129,0.12)", borderColor: "rgba(16,185,129,0.3)" },
-  tagPending: { color: "#fbbf24", backgroundColor: "rgba(245,158,11,0.1)", borderColor: "rgba(245,158,11,0.3)" },
-  meta: { display: "flex", flexWrap: "wrap", gap: 14, fontSize: 11, color: "#71717a" },
-  content: { padding: 10, borderRadius: 8, fontSize: 12, lineHeight: 1.6, color: "#d4d4d8", backgroundColor: "#09090b", border: "1px solid #27272a", whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 160, overflowY: "auto" },
-  chip: { display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 9px", borderRadius: 8, fontSize: 12, color: "#e4e4e7", textDecoration: "none", backgroundColor: "#09090b", border: "1px solid #27272a" },
-  feedback: { display: "flex", gap: 8, fontSize: 12, lineHeight: 1.6, color: "#d4d4d8", fontStyle: "italic", whiteSpace: "pre-wrap" },
+  tag: { display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 600, color: "#64748b", backgroundColor: "#f1f5f9", border: "1px solid #e2e8f0" },
+  tagCurrent: { color: "#1d4ed8", backgroundColor: "rgba(59,130,246,0.15)", borderColor: "rgba(59,130,246,0.35)" },
+  tagGraded: { color: "#059669", backgroundColor: "rgba(16,185,129,0.12)", borderColor: "rgba(16,185,129,0.3)" },
+  tagPending: { color: "#d97706", backgroundColor: "rgba(245,158,11,0.1)", borderColor: "rgba(245,158,11,0.3)" },
+  meta: { display: "flex", flexWrap: "wrap", gap: 14, fontSize: 11, color: "#94a3b8" },
+  content: { padding: 10, borderRadius: 8, fontSize: 12, lineHeight: 1.6, color: "#334155", backgroundColor: "#ffffff", border: "1px solid #e2e8f0", whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 160, overflowY: "auto" },
+  chip: { display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 9px", borderRadius: 8, fontSize: 12, color: "#1e293b", textDecoration: "none", backgroundColor: "#ffffff", border: "1px solid #e2e8f0" },
+  feedback: { display: "flex", gap: 8, fontSize: 12, lineHeight: 1.6, color: "#334155", fontStyle: "italic", whiteSpace: "pre-wrap" },
 
-  overlay: { position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)", display: "flex", justifyContent: "center", alignItems: "center", padding: 16, zIndex: 1000 },
-  modal: { width: "100%", maxWidth: 620, maxHeight: "88vh", display: "flex", flexDirection: "column", backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: 16, color: "#f4f4f5", overflow: "hidden", boxShadow: "0 25px 50px rgba(0,0,0,0.7)", fontFamily: "Inter, system-ui, sans-serif" },
-  modalHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "18px 24px", borderBottom: "1px solid #27272a", backgroundColor: "#1b1b1e" },
-  modalIcon: { width: 40, height: 40, flexShrink: 0, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", color: "#a78bfa", backgroundColor: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)" },
-  closeBtn: { display: "flex", padding: 6, border: "none", borderRadius: 8, backgroundColor: "transparent", color: "#a1a1aa", cursor: "pointer" },
+  overlay: { position: "fixed", inset: 0, backgroundColor: "rgba(15,23,42,0.45)", backdropFilter: "blur(4px)", display: "flex", justifyContent: "center", alignItems: "center", padding: 16, zIndex: 1000 },
+  modal: { width: "100%", maxWidth: 620, maxHeight: "88vh", display: "flex", flexDirection: "column", backgroundColor: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 16, color: "#0f172a", overflow: "hidden", boxShadow: "0 25px 50px rgba(15,23,42,0.18)", fontFamily: "Inter, system-ui, sans-serif" },
+  modalHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "18px 24px", borderBottom: "1px solid #e2e8f0", backgroundColor: "#f8fafc" },
+  modalIcon: { width: 40, height: 40, flexShrink: 0, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", color: "#7c3aed", backgroundColor: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)" },
+  closeBtn: { display: "flex", padding: 6, border: "none", borderRadius: 8, backgroundColor: "transparent", color: "#64748b", cursor: "pointer" },
   modalBody: { padding: 24, overflowY: "auto" },
 };

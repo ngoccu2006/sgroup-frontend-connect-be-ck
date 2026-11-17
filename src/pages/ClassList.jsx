@@ -199,10 +199,16 @@ export default function ClassList() {
           <div style={styles.headerIcon}><School size={24} /></div>
           <div>
             <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
-              <h2 style={styles.title}>Lớp học của bạn</h2>
+              <h2 style={styles.title}>{isAdmin ? "Tất cả lớp học" : "Lớp học"}</h2>
               <span style={styles.countBadge}>{total} lớp</span>
             </div>
-            <p style={styles.subtitle}>Chọn một lớp để xem bài học, bài tập và tiến độ</p>
+            <p style={styles.subtitle}>
+              {isAdmin
+                ? "Quản lý toàn bộ lớp học, phân công mentor và theo dõi hoạt động"
+                : isMentorOrAdmin
+                  ? "Tạo lớp, quản lý bài giảng, bài tập và chấm điểm học viên"
+                  : "Chọn một lớp để học bài, nộp bài tập và xem tiến độ của bạn"}
+            </p>
           </div>
         </div>
 
@@ -224,7 +230,7 @@ export default function ClassList() {
               onChange={(e) => handleSearchChange(e.target.value)}
               placeholder="Tìm theo tên hoặc mô tả lớp..."
               className="cl-input"
-              style={{ ...styles.input, height: 38, paddingLeft: 36, paddingRight: searchTerm ? 34 : 12, backgroundColor: "#18181b" }}
+              style={{ ...styles.input, height: 38, paddingLeft: 36, paddingRight: searchTerm ? 34 : 12, backgroundColor: "#ffffff" }}
             />
             {searchTerm && (
               <button
@@ -245,7 +251,7 @@ export default function ClassList() {
               value={`${sortBy}:${order}`}
               onChange={handleSortChange}
               className="cl-input cl-select"
-              style={{ ...styles.input, height: 38, paddingLeft: 34, paddingRight: 28, backgroundColor: "#18181b", cursor: "pointer" }}
+              style={{ ...styles.input, height: 38, paddingLeft: 34, paddingRight: 28, backgroundColor: "#ffffff", cursor: "pointer" }}
             >
               <option value="created_at:desc">Mới nhất (Ngày tạo giảm dần)</option>
               <option value="created_at:asc">Cũ nhất (Ngày tạo tăng dần)</option>
@@ -258,12 +264,12 @@ export default function ClassList() {
 
           {/* Chọn số dòng/lớp mỗi trang (Limit) */}
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 13, color: "#a1a1aa", whiteSpace: "nowrap" }}>Hiển thị:</span>
+            <span style={{ fontSize: 13, color: "#64748b", whiteSpace: "nowrap" }}>Hiển thị:</span>
             <select
               value={limit}
               onChange={handleLimitChange}
               className="cl-input cl-select"
-              style={{ ...styles.input, height: 38, width: 80, padding: "0 10px", backgroundColor: "#18181b", cursor: "pointer" }}
+              style={{ ...styles.input, height: 38, width: 80, padding: "0 10px", backgroundColor: "#ffffff", cursor: "pointer" }}
             >
               <option value={6}>6</option>
               <option value={9}>9</option>
@@ -276,8 +282,8 @@ export default function ClassList() {
         {/* Hàng lọc khoảng ngày (Filtering) */}
         <div style={styles.filterRow}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", flex: 1 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#a1a1aa", fontSize: 13 }}>
-              <Filter size={15} style={{ color: "#60a5fa" }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#64748b", fontSize: 13 }}>
+              <Filter size={15} style={{ color: "#2563eb" }} />
               <span>Khoảng ngày bắt đầu:</span>
             </div>
 
@@ -288,16 +294,16 @@ export default function ClassList() {
                 onChange={handleFromDateChange}
                 title="Từ ngày"
                 className="cl-input"
-                style={{ ...styles.input, height: 34, width: 140, backgroundColor: "#18181b", colorScheme: "dark" }}
+                style={{ ...styles.input, height: 34, width: 140, backgroundColor: "#ffffff", colorScheme: "light" }}
               />
-              <span style={{ color: "#71717a", fontSize: 13 }}>đến</span>
+              <span style={{ color: "#94a3b8", fontSize: 13 }}>đến</span>
               <input
                 type="date"
                 value={toDate}
                 onChange={handleToDateChange}
                 title="Đến ngày"
                 className="cl-input"
-                style={{ ...styles.input, height: 34, width: 140, backgroundColor: "#18181b", colorScheme: "dark" }}
+                style={{ ...styles.input, height: 34, width: 140, backgroundColor: "#ffffff", colorScheme: "light" }}
               />
             </div>
 
@@ -337,10 +343,10 @@ export default function ClassList() {
         /* Trạng thái Rỗng */
         <div style={styles.empty}>
           <div style={styles.emptyIcon}><FolderOpen size={24} /></div>
-          <div style={{ fontWeight: 600, color: "#f4f4f5", fontSize: 15 }}>
+          <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 15 }}>
             Không tìm thấy kết quả phù hợp
           </div>
-          <div style={{ fontSize: 13, color: "#a1a1aa" }}>
+          <div style={{ fontSize: 13, color: "#64748b" }}>
             {hasActiveFilters
               ? "Hãy thử thay đổi từ khóa tìm kiếm hoặc điều chỉnh khoảng ngày lọc."
               : "Hiện tại chưa có lớp học nào trong hệ thống."}
@@ -387,8 +393,8 @@ export default function ClassList() {
                     <div
                       style={{
                         ...styles.initials,
-                        color: `hsl(${hue} 85% 70%)`,
-                        backgroundColor: `hsl(${hue} 80% 55% / 0.12)`,
+                        color: `hsl(${hue} 70% 38%)`,
+                        backgroundColor: `hsl(${hue} 80% 55% / 0.10)`,
                         borderColor: `hsl(${hue} 80% 55% / 0.35)`,
                       }}
                     >
@@ -438,8 +444,8 @@ export default function ClassList() {
             </button>
 
             <span style={styles.pageInfo}>
-              Trang <span style={{ color: "#f4f4f5", fontWeight: 700 }}>{page}</span> / {Math.max(1, totalPages)}
-              <span style={{ color: "#71717a", marginLeft: 8 }}>({total} kết quả)</span>
+              Trang <span style={{ color: "#0f172a", fontWeight: 700 }}>{page}</span> / {Math.max(1, totalPages)}
+              <span style={{ color: "#94a3b8", marginLeft: 8 }}>({total} kết quả)</span>
             </span>
 
             <button
@@ -489,85 +495,85 @@ const hashHue = (str) => {
 
 const css = `
   .cl-card { transition: transform .2s, border-color .2s, box-shadow .2s; }
-  .cl-card:hover { transform: translateY(-2px); border-color: #3f3f46 !important; box-shadow: 0 16px 32px rgba(0,0,0,0.4); }
+  .cl-card:hover { transform: translateY(-2px); border-color: #bfdbfe !important; box-shadow: 0 16px 32px rgba(37,99,235,0.10); }
   .cl-card-title { transition: color .15s; }
   .cl-actions { opacity: 0; transition: opacity .15s; }
   .cl-card:hover .cl-actions, .cl-actions:focus-within { opacity: 1; }
   @media (hover: none) { .cl-actions { opacity: 1; } }
   .cl-action { transition: background-color .15s, color .15s; }
-  .cl-action:hover:not(:disabled) { color: #f4f4f5 !important; background-color: #27272a !important; }
-  .cl-action-danger:hover:not(:disabled) { color: #fb7185 !important; background-color: rgba(244,63,94,0.12) !important; }
-  .cl-card:hover .cl-card-title { color: #60a5fa; }
+  .cl-action:hover:not(:disabled) { color: #0f172a !important; background-color: #e2e8f0 !important; }
+  .cl-action-danger:hover:not(:disabled) { color: #e11d48 !important; background-color: rgba(244,63,94,0.12) !important; }
+  .cl-card:hover .cl-card-title { color: #2563eb; }
   .cl-detail { transition: transform .15s; }
   .cl-card:hover .cl-detail { transform: translateX(2px); }
   .cl-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .cl-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   .cl-btn-primary { transition: background-color .15s, transform .1s; }
-  .cl-btn-primary:hover:not(:disabled) { background-color: #3b82f6 !important; }
+  .cl-btn-primary:hover:not(:disabled) { background-color: #1d4ed8 !important; }
   .cl-btn-primary:active:not(:disabled) { transform: scale(0.98); }
-  .cl-btn-ghost:hover { color: #f4f4f5 !important; background-color: #27272a !important; }
+  .cl-btn-ghost:hover { color: #0f172a !important; background-color: #e2e8f0 !important; }
   .cl-btn-page { transition: background-color .15s, color .15s, border-color .15s; }
-  .cl-btn-page:hover:not(:disabled) { background-color: #27272a !important; border-color: #3f3f46 !important; color: #f4f4f5 !important; }
+  .cl-btn-page:hover:not(:disabled) { background-color: #e2e8f0 !important; border-color: #cbd5e1 !important; color: #0f172a !important; }
   .cl-btn-page:active:not(:disabled) { transform: scale(0.97); }
   .cl-input:focus { border-color: #3b82f6 !important; box-shadow: 0 0 0 1px #3b82f6; }
-  .cl-input::placeholder { color: #71717a; }
+  .cl-input::placeholder { color: #94a3b8; }
   .cl-select { appearance: none; }
   .cl-modal { animation: cl-pop .18s ease-out; }
   @keyframes cl-pop { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
-  .cl-spinner { width: 28px; height: 28px; margin: 0 auto 12px; border: 3px solid #27272a; border-top-color: #3b82f6; border-radius: 50%; animation: cl-spin .8s linear infinite; }
-  .cl-spinner-sm { width: 14px; height: 14px; margin: 0; border-width: 2px; border-color: rgba(255,255,255,0.3); border-top-color: #fff; }
+  .cl-spinner { width: 28px; height: 28px; margin: 0 auto 12px; border: 3px solid #e2e8f0; border-top-color: #3b82f6; border-radius: 50%; animation: cl-spin .8s linear infinite; }
+  .cl-spinner-sm { width: 14px; height: 14px; margin: 0; border-width: 2px; border-color: currentColor; border-right-color: transparent; }
   @keyframes cl-spin { to { rotate: 360deg; } }
 `;
 
 const styles = {
   page: { fontFamily: "Inter, system-ui, sans-serif" },
-  centerText: { textAlign: "center", padding: 60, color: "#a1a1aa", fontSize: 14 },
-  errorText: { display: "flex", alignItems: "center", gap: 10, color: "#fda4af", padding: 14, marginBottom: 20, backgroundColor: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.25)", borderRadius: 12, fontSize: 13 },
+  centerText: { textAlign: "center", padding: 60, color: "#64748b", fontSize: 14 },
+  errorText: { display: "flex", alignItems: "center", gap: 10, color: "#be123c", padding: 14, marginBottom: 20, backgroundColor: "rgba(244,63,94,0.1)", border: "1px solid rgba(244,63,94,0.25)", borderRadius: 12, fontSize: 13 },
 
-  pageHeader: { display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 16, paddingBottom: 24, borderBottom: "1px solid #27272a" },
-  headerIcon: { width: 48, height: 48, flexShrink: 0, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", color: "#60a5fa", background: "linear-gradient(135deg, rgba(59,130,246,0.3), #27272a)", border: "1px solid rgba(59,130,246,0.3)", boxShadow: "0 8px 20px rgba(59,130,246,0.1)" },
-  title: { margin: 0, color: "#f4f4f5", fontSize: 24, fontWeight: 600, letterSpacing: "-0.02em" },
-  countBadge: { padding: "2px 10px", borderRadius: 999, fontSize: 11, fontWeight: 500, color: "#34d399", backgroundColor: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)" },
-  subtitle: { margin: "4px 0 0", color: "#a1a1aa", fontSize: 13 },
+  pageHeader: { display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 16, paddingBottom: 24, borderBottom: "1px solid #e2e8f0" },
+  headerIcon: { width: 48, height: 48, flexShrink: 0, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", background: "linear-gradient(135deg, #2563eb, #0ea5e9)", boxShadow: "0 8px 20px rgba(37,99,235,0.25)" },
+  title: { margin: 0, color: "#0f172a", fontSize: 24, fontWeight: 600, letterSpacing: "-0.02em" },
+  countBadge: { padding: "2px 10px", borderRadius: 999, fontSize: 11, fontWeight: 600, color: "#1d4ed8", backgroundColor: "#eff6ff", border: "1px solid #bfdbfe" },
+  subtitle: { margin: "4px 0 0", color: "#64748b", fontSize: 13 },
   createBtn: { display: "inline-flex", alignItems: "center", gap: 6, backgroundColor: "#2563eb", color: "#fff", border: "none", padding: "10px 16px", borderRadius: 10, cursor: "pointer", fontWeight: 600, fontSize: 13, boxShadow: "0 8px 20px rgba(37,99,235,0.25)" },
 
-  controlPanel: { display: "flex", flexDirection: "column", gap: 14, margin: "24px 0", padding: 16, borderRadius: 14, backgroundColor: "#141416", border: "1px solid #27272a" },
+  controlPanel: { display: "flex", flexDirection: "column", gap: 14, margin: "24px 0", padding: 16, borderRadius: 14, backgroundColor: "#ffffff", border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(15,23,42,0.04)" },
   toolbarRow: { display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12 },
   searchWrap: { position: "relative", flex: "1 1 280px", maxWidth: 420 },
-  searchIcon: { position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#71717a", pointerEvents: "none" },
-  clearSearchBtn: { position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "#71717a", cursor: "pointer", display: "flex", alignItems: "center", padding: 4, borderRadius: 4 },
+  searchIcon: { position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#94a3b8", pointerEvents: "none" },
+  clearSearchBtn: { position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "#94a3b8", cursor: "pointer", display: "flex", alignItems: "center", padding: 4, borderRadius: 4 },
   sortWrap: { position: "relative", flex: "1 1 220px", maxWidth: 300 },
-  selectIcon: { position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#71717a", pointerEvents: "none" },
-  filterRow: { display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12, paddingTop: 12, borderTop: "1px solid #1f1f23" },
-  resetBtn: { display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 8, fontSize: 12, color: "#a1a1aa", border: "1px solid #27272a", backgroundColor: "transparent", cursor: "pointer" },
-  metaCount: { display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "#a1a1aa" },
+  selectIcon: { position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#94a3b8", pointerEvents: "none" },
+  filterRow: { display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12, paddingTop: 12, borderTop: "1px solid #eef2f7" },
+  resetBtn: { display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 8, fontSize: 12, color: "#64748b", border: "1px solid #e2e8f0", backgroundColor: "transparent", cursor: "pointer" },
+  metaCount: { display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "#64748b" },
   dot: { width: 6, height: 6, borderRadius: "50%", backgroundColor: "#3b82f6" },
 
   grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 24 },
-  card: { position: "relative", display: "flex", flexDirection: "column", overflow: "hidden", backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: 12 },
+  card: { position: "relative", display: "flex", flexDirection: "column", overflow: "hidden", backgroundColor: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 12, boxShadow: "0 1px 3px rgba(15,23,42,0.05)" },
   cardLink: { flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between", color: "inherit", textDecoration: "none" },
-  cardActions: { position: "absolute", top: 14, right: 12, zIndex: 2, display: "flex", gap: 4, padding: 3, borderRadius: 10, backgroundColor: "rgba(24,24,27,0.9)", border: "1px solid #27272a" },
-  actionBtn: { display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, border: "none", borderRadius: 7, backgroundColor: "transparent", color: "#a1a1aa", cursor: "pointer" },
-  mentorChip: { display: "inline-flex", alignItems: "center", gap: 5, marginTop: 12, padding: "3px 9px", borderRadius: 999, fontSize: 11, fontWeight: 600, color: "#c4b5fd", backgroundColor: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)" },
-  mentorChipMine: { color: "#6ee7b7", backgroundColor: "rgba(16,185,129,0.12)", borderColor: "rgba(16,185,129,0.3)" },
-  mentorChipNone: { color: "#fbbf24", backgroundColor: "rgba(245,158,11,0.1)", borderColor: "rgba(245,158,11,0.3)" },
+  cardActions: { position: "absolute", top: 14, right: 12, zIndex: 2, display: "flex", gap: 4, padding: 3, borderRadius: 10, backgroundColor: "rgba(248,250,252,0.9)", border: "1px solid #e2e8f0" },
+  actionBtn: { display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, border: "none", borderRadius: 7, backgroundColor: "transparent", color: "#64748b", cursor: "pointer" },
+  mentorChip: { display: "inline-flex", alignItems: "center", gap: 5, marginTop: 12, padding: "3px 9px", borderRadius: 999, fontSize: 11, fontWeight: 600, color: "#6d28d9", backgroundColor: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)" },
+  mentorChipMine: { color: "#047857", backgroundColor: "rgba(16,185,129,0.12)", borderColor: "rgba(16,185,129,0.3)" },
+  mentorChipNone: { color: "#d97706", backgroundColor: "rgba(245,158,11,0.1)", borderColor: "rgba(245,158,11,0.3)" },
   banner: { height: 6, width: "100%" },
   cardBody: { padding: 20, flex: 1 },
   initials: { width: 38, height: 38, marginBottom: 14, borderRadius: 10, border: "1px solid", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 600, letterSpacing: "0.05em" },
-  cardTitle: { margin: 0, fontSize: 15, fontWeight: 600, lineHeight: 1.4, color: "#f4f4f5", letterSpacing: "-0.01em" },
-  cardDesc: { margin: "8px 0 0", color: "#a1a1aa", fontSize: 13, lineHeight: 1.6 },
-  cardFooter: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "14px 20px", borderTop: "1px solid #27272a", backgroundColor: "rgba(14,14,17,0.6)" },
-  dateInfo: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#a1a1aa" },
-  detailLink: { display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 500, color: "#60a5fa" },
+  cardTitle: { margin: 0, fontSize: 15, fontWeight: 600, lineHeight: 1.4, color: "#0f172a", letterSpacing: "-0.01em" },
+  cardDesc: { margin: "8px 0 0", color: "#64748b", fontSize: 13, lineHeight: 1.6 },
+  cardFooter: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "14px 20px", borderTop: "1px solid #e2e8f0", backgroundColor: "#f8fafc" },
+  dateInfo: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#64748b" },
+  detailLink: { display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 500, color: "#2563eb" },
 
-  empty: { display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "48px 16px", textAlign: "center", color: "#a1a1aa", fontSize: 13, borderRadius: 12, border: "2px dashed rgba(63,63,70,0.6)", backgroundColor: "rgba(24,24,27,0.3)" },
-  emptyIcon: { width: 52, height: 52, marginBottom: 4, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", color: "#60a5fa", backgroundColor: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.25)" },
+  empty: { display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "48px 16px", textAlign: "center", color: "#64748b", fontSize: 13, borderRadius: 12, border: "2px dashed #cbd5e1", backgroundColor: "rgba(248,250,252,0.3)" },
+  emptyIcon: { width: 52, height: 52, marginBottom: 4, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", color: "#2563eb", backgroundColor: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.25)" },
 
-  paginationWrap: { display: "flex", justifyContent: "center", alignItems: "center", gap: 16, marginTop: 32, paddingTop: 24, borderTop: "1px solid #27272a" },
-  pageBtn: { display: "inline-flex", alignItems: "center", gap: 5, padding: "8px 16px", borderRadius: 10, border: "1px solid #27272a", backgroundColor: "#18181b", color: "#f4f4f5", fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" },
+  paginationWrap: { display: "flex", justifyContent: "center", alignItems: "center", gap: 16, marginTop: 32, paddingTop: 24, borderTop: "1px solid #e2e8f0" },
+  pageBtn: { display: "inline-flex", alignItems: "center", gap: 5, padding: "8px 16px", borderRadius: 10, border: "1px solid #e2e8f0", backgroundColor: "#ffffff", color: "#0f172a", fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" },
   pageBtnDisabled: { opacity: 0.35, cursor: "not-allowed" },
-  pageInfo: { fontSize: 13, color: "#a1a1aa" },
+  pageInfo: { fontSize: 13, color: "#64748b" },
 
 
-  input: { width: "100%", boxSizing: "border-box", padding: "8px 12px", borderRadius: 10, border: "1px solid #27272a", backgroundColor: "#0e0e11", color: "#f4f4f5", fontSize: 13, outline: "none", fontFamily: "inherit", transition: "border-color .15s, box-shadow .15s" },
+  input: { width: "100%", boxSizing: "border-box", padding: "8px 12px", borderRadius: 10, border: "1px solid #e2e8f0", backgroundColor: "#ffffff", color: "#0f172a", fontSize: 13, outline: "none", fontFamily: "inherit", transition: "border-color .15s, box-shadow .15s" },
 };
